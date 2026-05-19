@@ -1,0 +1,51 @@
+{
+  "_comment": "This file is the SOURCE OF TRUTH for trading setups. Hermes (AI) writes this. Bot reads this each cycle. DO NOT edit manually unless you know what you're doing.",
+  "version": "1.1",
+  "last_updated": "2026-05-19T15:50:00Z",
+  "updated_by": "hermes-ai",
+  "modal_awal": 10000.00,
+  "max_risk_per_trade_pct": 1.0,
+  "max_total_exposure_pct": 10.0,
+  "symbols": ["SOLUSDT"],
+  "setups": {
+    "SOLUSDT": [
+      {
+        "id": "SOL_SETUP_A",
+        "side": "SHORT",
+        "entry_zone": [85.20, 85.60],
+        "sl": 86.10,
+        "tp1": 83.50,
+        "tp2": 81.63,
+        "size_usd": 300,
+        "trigger": "rejection",
+        "active": true,
+        "note": "Short on bounce rejection at intermediate resistance"
+      },
+      {
+        "id": "SOL_SETUP_B",
+        "side": "SHORT",
+        "entry_trigger_below": 83.45,
+        "sl": 84.30,
+        "tp1": 81.63,
+        "tp2": 80.80,
+        "tp3": 76.70,
+        "size_usd": 400,
+        "trigger": "breakdown",
+        "active": true,
+        "note": "Short on breakdown of $83.45 (cluster cascade target)"
+      },
+      {
+        "id": "SOL_SETUP_C",
+        "side": "SHORT",
+        "entry_zone": [84.70, 84.90],
+        "sl": 85.30,
+        "tp1": 83.50,
+        "tp2": 81.63,
+        "size_usd": 150,
+        "trigger": "scout",
+        "active": true,
+        "note": "Scout short, small size for early breakdown detection"
+      }
+    ]
+  }
+}

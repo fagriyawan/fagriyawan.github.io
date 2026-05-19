@@ -1,64 +1,18 @@
 {
-  "version": "1.1",
-  "started_at": "2026-05-19T16:06:06.996656+00:00",
+  "version": "2.0",
+  "started_at": "2026-05-19T16:34:58.497949+00:00",
   "modal_awal": 10000.0,
   "cash": 10000.0,
   "open_positions": [],
-  "pending_setups": {
-    "SOLUSDT": [
-      {
-        "id": "SOL_SETUP_A",
-        "side": "SHORT",
-        "entry_zone": [
-          85.2,
-          85.6
-        ],
-        "sl": 86.1,
-        "tp1": 83.5,
-        "tp2": 81.63,
-        "size_usd": 300,
-        "trigger": "rejection",
-        "active": true,
-        "note": "Short on bounce rejection"
-      },
-      {
-        "id": "SOL_SETUP_B",
-        "side": "SHORT",
-        "entry_trigger_below": 83.45,
-        "sl": 84.3,
-        "tp1": 81.63,
-        "tp2": 80.8,
-        "tp3": 76.7,
-        "size_usd": 400,
-        "trigger": "breakdown",
-        "active": true,
-        "note": "Short on breakdown (cluster cascade target)"
-      },
-      {
-        "id": "SOL_SETUP_C",
-        "side": "SHORT",
-        "entry_zone": [
-          84.7,
-          84.9
-        ],
-        "sl": 85.3,
-        "tp1": 83.5,
-        "tp2": 81.63,
-        "size_usd": 150,
-        "trigger": "scout",
-        "active": true,
-        "note": "Scout short, small size"
-      }
-    ]
-  },
+  "consumed_setup_ids": [],
   "last_snapshot": {
     "SOLUSDT": {
       "symbol": "SOLUSDT",
-      "price": 84.23,
-      "change_24h": 0.059,
+      "price": 84.66,
+      "change_24h": 0.546,
       "high_24h": 85.97,
       "low_24h": 83.5,
-      "vol_quote_usd": 167305536.62076,
+      "vol_quote_usd": 163913748.45311,
       "oi_usd": 817603200.2048,
       "oi_units": 9696432.64,
       "oi_change_24h_pct": -0.453437766343753,
@@ -68,11 +22,12 @@
       "taker_latest": 0.9609,
       "taker_avg_3h": 0.8975333333333334,
       "k15m_open": 84.38,
-      "k15m_high": 84.44,
-      "k15m_low": 84.22,
-      "k15m_close": 84.23
+      "k15m_high": 84.67,
+      "k15m_low": 84.38,
+      "k15m_close": 84.66
     }
   },
   "last_daily_report_date": null,
+  "last_setups_hash": "de689bf370486dcb014ef85bfaea9532",
   "trade_counter": 0
 }

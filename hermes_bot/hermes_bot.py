@@ -1,22 +1,32 @@
 #!/usr/bin/env python3
 """
-HERMES TRADING ANALYST - Autonomous Paper Trading Bot
-======================================================
-Deploy anywhere (VPS, Replit, Railway, GitHub Actions, cron).
-Polls Binance market data, evaluates setups against rule book,
-executes paper trades, sends Telegram alerts.
+HERMES TRADING BOT v2 - Auto Git Sync Edition
+==============================================
+Autonomous paper trading bot with bidirectional Git sync.
 
-Usage:
-    export TG_TOKEN="your_token"
-    export TG_CHAT_ID="your_chat_id"
-    python3 hermes_bot.py             # one cycle
-    python3 hermes_bot.py --loop      # forever (polls every 10 min)
-    python3 hermes_bot.py --startup-msg --loop   # send hello + loop
+Architecture:
+  setups.json          ← Hermes (AI) writes, bot reads each cycle
+  HERMES_RULE_BOOK.md  ← Hermes writes (human-readable reasoning)
+  trade_history.json   ← Bot writes after every trade close
+  state.json           ← Bot writes (portfolio, positions, last poll)
+  snapshots/*.json     ← Bot writes (market data archives)
+  lessons_log.md       ← Bot appends auto-lessons after each trade
 
-State files (in same dir):
-    state.json           - portfolio, open positions, pending setups
-    trade_history.json   - all closed trades
-    snapshots/           - periodic market snapshots
+Usage in Termux:
+  pkg install python git
+  git clone -b hermes-trading-bot https://github.com/fagriyawan/fagriyawan.github.io.git hermes
+  cd hermes/hermes_bot
+  cp .env.example .env
+  # edit .env to set TG_TOKEN, TG_CHAT_ID, GITHUB_TOKEN
+  bash setup_termux.sh
+  python hermes_bot.py --loop
+
+Required env vars (or set in .env):
+  TG_TOKEN       - Telegram bot token
+  TG_CHAT_ID     - Telegram chat id
+  GITHUB_TOKEN   - GitHub Personal Access Token (repo write scope)
+  GITHUB_REPO    - owner/name (default: fagriyawan/fagriyawan.github.io)
+  GITHUB_BRANCH  - branch name (default: hermes-trading-bot)
 """
 
 import os
@@ -25,23 +35,45 @@ import json
 import time
 import urllib.request
 import ssl
+import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
 # ============================================================
 # CONFIG
 # ============================================================
-TG_TOKEN   = os.environ.get("TG_TOKEN", "8894045436:AAHuFSPIrF--BTxc84t2bRg-ZSp3QcdlhZs")
-TG_CHAT_ID = int(os.environ.get("TG_CHAT_ID", "989563434"))
+def _env_or_dotenv():
+    """Load .env file into os.environ if it exists."""
+    here = Path(__file__).parent
+    dotenv = here / ".env"
+    if dotenv.exists():
+        for line in dotenv.read_text().splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            k, v = line.split("=", 1)
+            v = v.strip().strip('"').strip("'")
+            if k.strip() and v:
+                os.environ.setdefault(k.strip(), v)
 
-POLL_INTERVAL_SEC = 600          # 10 minutes
-DAILY_REPORT_HOUR_UTC = 0        # 00:00 UTC = 07:00 WIB
-SYMBOLS = ["SOLUSDT"]            # bisa expand ke ["BTCUSDT", "ETHUSDT", ...]
+_env_or_dotenv()
 
-DATA_DIR = Path(__file__).parent
-STATE_FILE = DATA_DIR / "state.json"
-HISTORY_FILE = DATA_DIR / "trade_history.json"
-SNAP_DIR = DATA_DIR / "snapshots"
+TG_TOKEN     = os.environ.get("TG_TOKEN", "")
+TG_CHAT_ID   = int(os.environ.get("TG_CHAT_ID", "0") or "0")
+GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
+GITHUB_REPO  = os.environ.get("GITHUB_REPO", "fagriyawan/fagriyawan.github.io")
+GITHUB_BRANCH= os.environ.get("GITHUB_BRANCH", "hermes-trading-bot")
+
+POLL_INTERVAL_SEC     = int(os.environ.get("POLL_INTERVAL_SEC", "600"))   # 10 min
+DAILY_REPORT_HOUR_UTC = int(os.environ.get("DAILY_REPORT_HOUR_UTC", "0"))
+
+BOT_DIR    = Path(__file__).parent.resolve()
+REPO_ROOT  = BOT_DIR.parent
+SETUPS_FILE   = BOT_DIR / "setups.json"
+STATE_FILE    = BOT_DIR / "state.json"
+HISTORY_FILE  = BOT_DIR / "trade_history.json"
+LESSONS_FILE  = BOT_DIR / "lessons_log.md"
+SNAP_DIR      = BOT_DIR / "snapshots"
 SNAP_DIR.mkdir(exist_ok=True)
 
 BASE_SPOT = "https://data-api.binance.vision"
@@ -59,7 +91,7 @@ def log(msg):
     print(f"[{utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC] {msg}", flush=True)
 
 def http_get_json(url, timeout=15):
-    req = urllib.request.Request(url, headers={'User-Agent': 'HermesBot/1.0'})
+    req = urllib.request.Request(url, headers={'User-Agent': 'HermesBot/2.0'})
     with urllib.request.urlopen(req, timeout=timeout, context=CTX) as r:
         return json.loads(r.read().decode())
 
@@ -69,6 +101,75 @@ def http_post_json(url, payload, timeout=15):
                                   headers={'Content-Type': 'application/json'})
     with urllib.request.urlopen(req, timeout=timeout, context=CTX) as r:
         return json.loads(r.read().decode())
+
+
+# ============================================================
+# GIT SYNC
+# ============================================================
+def git(*args, check=False, capture=True):
+    """Run git command in repo root. Returns CompletedProcess."""
+    return subprocess.run(
+        ["git"] + list(args),
+        cwd=str(REPO_ROOT),
+        check=check,
+        capture_output=capture,
+        text=True,
+        timeout=60,
+    )
+
+def git_configure_remote():
+    """Configure remote URL with token-based auth (Termux-friendly)."""
+    if not GITHUB_TOKEN:
+        log("GITHUB_TOKEN missing — git push will fail. Run in read-only mode.")
+        return False
+    url = f"https://x-access-token:{GITHUB_TOKEN}@github.com/{GITHUB_REPO}.git"
+    try:
+        git("remote", "set-url", "origin", url)
+        git("config", "user.email", "hermes-bot@noreply.local")
+        git("config", "user.name", "Hermes Bot")
+        return True
+    except Exception as e:
+        log(f"git remote configure FAIL: {e}")
+        return False
+
+def git_pull():
+    """Pull latest changes from remote (rules updates from Hermes)."""
+    try:
+        # Save local-only files first (state.json, snapshots, history)
+        # These are committed by bot but might be ahead. Use rebase to resolve.
+        result = git("pull", "--rebase", "--autostash", "origin", GITHUB_BRANCH)
+        if result.returncode == 0:
+            return True
+        log(f"git pull stderr: {result.stderr}")
+        return False
+    except Exception as e:
+        log(f"git pull FAIL: {e}")
+        return False
+
+def git_push_files(files, message):
+    """Stage given files, commit, push."""
+    if not GITHUB_TOKEN:
+        log("git push skipped (no GITHUB_TOKEN)")
+        return False
+    try:
+        for f in files:
+            rel = str(Path(f).relative_to(REPO_ROOT))
+            git("add", rel)
+        # Check if anything staged
+        st = git("diff", "--cached", "--quiet")
+        if st.returncode == 0:
+            log("git: no changes to commit")
+            return True
+        git("commit", "-m", message)
+        result = git("push", "origin", GITHUB_BRANCH)
+        if result.returncode == 0:
+            log(f"git pushed: {message}")
+            return True
+        log(f"git push stderr: {result.stderr}")
+        return False
+    except Exception as e:
+        log(f"git push FAIL: {e}")
+        return False
 
 
 # ============================================================
@@ -95,7 +196,6 @@ def tg_send(text, parse_mode="Markdown"):
 # DATA FETCH
 # ============================================================
 def fetch_market(symbol):
-    """Fetch full market snapshot for a symbol."""
     urls = {
         "ticker":    f"{BASE_SPOT}/api/v3/ticker/24hr?symbol={symbol}",
         "k4h":       f"{BASE_SPOT}/api/v3/klines?symbol={symbol}&interval=4h&limit=30",
@@ -117,7 +217,6 @@ def fetch_market(symbol):
 
 
 def summarize_market(symbol, raw):
-    """Extract key metrics from raw fetch."""
     if not raw or not raw.get("ticker"):
         return None
     t = raw["ticker"]
@@ -154,73 +253,43 @@ def summarize_market(symbol, raw):
 
 
 # ============================================================
-# STATE
+# STATE & SETUPS
 # ============================================================
 DEFAULT_STATE = {
-    "version": "1.1",
+    "version": "2.0",
     "started_at": None,
     "modal_awal": 10000.00,
     "cash": 10000.00,
     "open_positions": [],
-    "pending_setups": {},
+    "consumed_setup_ids": [],
     "last_snapshot": {},
     "last_daily_report_date": None,
+    "last_setups_hash": "",
     "trade_counter": 0,
 }
 
-def bootstrap_setups():
-    """Initial setups from TRADE_LOG_SOL_003."""
-    return {
-        "SOLUSDT": [
-            {
-                "id": "SOL_SETUP_A",
-                "side": "SHORT",
-                "entry_zone": [85.20, 85.60],
-                "sl": 86.10,
-                "tp1": 83.50,
-                "tp2": 81.63,
-                "size_usd": 300,
-                "trigger": "rejection",
-                "active": True,
-                "note": "Short on bounce rejection",
-            },
-            {
-                "id": "SOL_SETUP_B",
-                "side": "SHORT",
-                "entry_trigger_below": 83.45,
-                "sl": 84.30,
-                "tp1": 81.63,
-                "tp2": 80.80,
-                "tp3": 76.70,
-                "size_usd": 400,
-                "trigger": "breakdown",
-                "active": True,
-                "note": "Short on breakdown (cluster cascade target)",
-            },
-            {
-                "id": "SOL_SETUP_C",
-                "side": "SHORT",
-                "entry_zone": [84.70, 84.90],
-                "sl": 85.30,
-                "tp1": 83.50,
-                "tp2": 81.63,
-                "size_usd": 150,
-                "trigger": "scout",
-                "active": True,
-                "note": "Scout short, small size",
-            },
-        ]
-    }
+def load_setups():
+    if not SETUPS_FILE.exists():
+        log("setups.json missing, no setups loaded")
+        return {"setups": {}}
+    try:
+        return json.loads(SETUPS_FILE.read_text())
+    except Exception as e:
+        log(f"setups.json parse error: {e}")
+        return {"setups": {}}
+
+def setups_hash():
+    if SETUPS_FILE.exists():
+        import hashlib
+        return hashlib.md5(SETUPS_FILE.read_bytes()).hexdigest()
+    return ""
 
 def load_state():
     if STATE_FILE.exists():
-        try:
-            return json.loads(STATE_FILE.read_text())
-        except Exception:
-            pass
+        try: return json.loads(STATE_FILE.read_text())
+        except: pass
     s = dict(DEFAULT_STATE)
     s["started_at"] = utcnow().isoformat()
-    s["pending_setups"] = bootstrap_setups()
     save_state(s)
     return s
 
@@ -238,15 +307,62 @@ def save_history(h):
 
 
 # ============================================================
-# TRADE EXECUTION (paper)
+# AUTO-LESSONS (bot writes its own observations after trades)
 # ============================================================
-def open_position(state, setup, entry_price, reason):
+def append_lesson(trade, market_at_close):
+    """After each closed trade, append a structured lesson entry."""
+    won = trade["pnl_usd"] > 0
+    tag = "LESSON_WIN" if won else "LESSON_LOSS"
+    counter = len(load_history())
+    entry = f"""
+─────────────────────────────────────────
+[{tag}_{counter:03d}] {trade['trade_id']}
+Time     : {trade['closed_at']}
+Symbol   : {trade['symbol']} {trade['side']}
+Setup    : {trade['setup_id']}
+Entry    : ${trade['entry_price']:.2f}
+Exit     : ${trade['exit_price']:.2f}
+Reason   : {trade['close_reason']}
+P&L      : ${trade['pnl_usd']:+.2f} ({trade['pnl_pct']:+.2f}%)
+Duration : {trade['opened_at']} -> {trade['closed_at']}
+
+Market context at entry (saved in trade_history.json)
+Market context at close:
+  Price now    : ${market_at_close.get('price', 0):.2f}
+  L/S retail   : {market_at_close.get('ls_retail_long_pct', 0):.2f}%
+  L/S smart    : {market_at_close.get('ls_smart_long_pct', 0):.2f}%
+  Divergence   : {market_at_close.get('divergence_pp', 0):+.2f}pp
+  Taker        : {market_at_close.get('taker_latest', 0):.3f}
+  OI           : ${market_at_close.get('oi_usd', 0)/1e6:.1f}M
+
+Auto observation:
+"""
+    if won:
+        entry += f"  Trade WIN. Setup '{trade['setup_id']}' valid in observed conditions.\n"
+        entry += f"  Hermes review TODO: confirm pattern, possibly increase confidence/size.\n"
+    else:
+        entry += f"  Trade LOSS. Setup '{trade['setup_id']}' failed.\n"
+        entry += f"  Hermes review TODO: identify what signal should have prevented entry.\n"
+        entry += f"  Add to DAFTAR_SINYAL_BAHAYA after analysis.\n"
+
+    # Append to lessons file
+    if not LESSONS_FILE.exists():
+        LESSONS_FILE.write_text("# HERMES Lessons Log (auto-appended by bot)\n\n_Hermes (AI) reviews this periodically and updates HERMES_RULE_BOOK.md_\n")
+    with open(LESSONS_FILE, "a") as f:
+        f.write(entry)
+    return entry
+
+
+# ============================================================
+# TRADE EXECUTION
+# ============================================================
+def open_position(state, setup, entry_price, reason, market):
     state["trade_counter"] += 1
     tp_levels = [v for v in [setup.get("tp1"), setup.get("tp2"), setup.get("tp3")] if v]
     pos = {
         "trade_id": f"TRADE_{state['trade_counter']:04d}",
         "setup_id": setup["id"],
-        "symbol": "SOLUSDT",
+        "symbol": setup.get("_symbol", "SOLUSDT"),
         "side": setup["side"],
         "entry_price": round(entry_price, 4),
         "size_usd": setup["size_usd"],
@@ -256,16 +372,15 @@ def open_position(state, setup, entry_price, reason):
         "opened_at": utcnow().isoformat(),
         "reason": reason,
         "status": "OPEN",
+        "market_at_open": market,
     }
     state["open_positions"].append(pos)
+    state["consumed_setup_ids"].append(setup["id"])
     state["cash"] -= setup["size_usd"]
-    for s in state["pending_setups"]["SOLUSDT"]:
-        if s["id"] == setup["id"]:
-            s["active"] = False
     save_state(state)
     return pos
 
-def close_position(state, pos, exit_price, reason):
+def close_position(state, pos, exit_price, reason, market_at_close):
     if pos["side"] == "SHORT":
         pnl_pct = (pos["entry_price"] - exit_price) / pos["entry_price"]
     else:
@@ -277,11 +392,13 @@ def close_position(state, pos, exit_price, reason):
     pos["closed_at"] = utcnow().isoformat()
     pos["close_reason"] = reason
     pos["status"] = "CLOSED"
+    pos["market_at_close"] = market_at_close
     state["cash"] += pos["size_usd"] + pnl_usd
     state["open_positions"] = [p for p in state["open_positions"] if p["trade_id"] != pos["trade_id"]]
     h = load_history()
     h.append(pos)
     save_history(h)
+    append_lesson(pos, market_at_close)
     save_state(state)
     return pos
 
@@ -289,38 +406,41 @@ def close_position(state, pos, exit_price, reason):
 # ============================================================
 # DECISION ENGINE
 # ============================================================
-def evaluate_triggers(state, summary, raw):
-    """Check pending setups; return list of (setup, entry_price, reason)."""
+def evaluate_triggers(state, summary, raw, setups_data):
     triggers = []
-    if summary["symbol"] != "SOLUSDT":
+    sym = summary["symbol"]
+    setups_for_sym = setups_data.get("setups", {}).get(sym, [])
+    if not setups_for_sym:
         return triggers
-    setups = state["pending_setups"].get("SOLUSDT", [])
-    price = summary["price"]
-    last_15m = raw["k15m"][-1] if raw.get("k15m") else None
-    if not last_15m:
+    if not raw.get("k15m"):
         return triggers
 
+    last_15m = raw["k15m"][-1]
     k_open  = float(last_15m[1])
     k_high  = float(last_15m[2])
     k_low   = float(last_15m[3])
     k_close = float(last_15m[4])
     is_bearish_15m = k_close < k_open
+    price = summary["price"]
 
-    for s in setups:
+    consumed = set(state.get("consumed_setup_ids", []))
+
+    for s in setups_for_sym:
         if not s.get("active"):
             continue
+        if s["id"] in consumed:
+            continue
+        s["_symbol"] = sym
 
         if s["trigger"] == "rejection":
             zlow, zhigh = s["entry_zone"]
-            # Wick into zone, then close back below + bearish
             if k_high >= zlow and k_close < zlow and is_bearish_15m:
-                triggers.append((s, k_close, f"15m wick to ${k_high:.2f} into zone, closed ${k_close:.2f}"))
+                triggers.append((s, k_close, f"15m wick to ${k_high:.2f} into rejection zone, closed ${k_close:.2f}"))
 
         elif s["trigger"] == "breakdown":
             thr = s["entry_trigger_below"]
-            # 15m close below threshold, opened above (fresh break)
             if k_close < thr and k_open >= thr * 0.998:
-                triggers.append((s, k_close, f"15m close ${k_close:.2f} below ${thr:.2f}"))
+                triggers.append((s, k_close, f"15m close ${k_close:.2f} broke below ${thr:.2f}"))
 
         elif s["trigger"] == "scout":
             zlow, zhigh = s["entry_zone"]
@@ -331,7 +451,6 @@ def evaluate_triggers(state, summary, raw):
 
 
 def evaluate_open_positions(state, summary):
-    """Check SL/TP for open positions. Returns list of (pos, exit_price, reason)."""
     closes = []
     price = summary["price"]
     high_24h = summary.get("high_24h", price)
@@ -340,16 +459,14 @@ def evaluate_open_positions(state, summary):
         if pos["symbol"] != summary["symbol"]:
             continue
         if pos["side"] == "SHORT":
-            # SL hit if price reached sl since open
             if high_24h >= pos["sl"] and price >= pos["sl"] * 0.999:
                 closes.append((pos, pos["sl"], "STOP LOSS hit"))
                 continue
-            # TP hit if price reached tp (use lowest tp first that was hit)
             for tp in pos["tp_levels"]:
                 if low_24h <= tp and price <= tp * 1.005:
                     closes.append((pos, tp, f"TP @ ${tp:.2f} hit"))
                     break
-        else:  # LONG
+        else:
             if low_24h <= pos["sl"] and price <= pos["sl"] * 1.001:
                 closes.append((pos, pos["sl"], "STOP LOSS hit"))
                 continue
@@ -406,14 +523,16 @@ def alert_close(pos, reason, equity):
     )
     tg_send(msg)
 
+def alert_setups_updated():
+    tg_send("📚 *RULES UPDATED*\nHermes pushed new setups. Bot now using updated `setups.json`.")
+
 def alert_periodic(state, summaries):
     parts = ["🟡 *HERMES PULSE*", "━━━━━━━━━━━━━━━━━━━━"]
     for s in summaries.values():
         parts.append(fmt_summary(s))
         parts.append("")
     open_count = len(state["open_positions"])
-    pending = sum(1 for ss in state["pending_setups"].values() for x in ss if x["active"])
-    parts.append(f"📌 Open: `{open_count}` | Pending: `{pending}` | Cash: `${state['cash']:.0f}`")
+    parts.append(f"📌 Open: `{open_count}` | Cash: `${state['cash']:.0f}`")
     tg_send("\n".join(parts))
 
 def daily_report(state, summaries):
@@ -452,10 +571,10 @@ def daily_report(state, summaries):
         f"💵 Cash bebas : `${state['cash']:.2f}`",
         f"📈 Unrealized : `${unreal:+.2f}`",
         "",
-        f"🎯 Total trades  : `{len(history)}`",
-        f"✅ Wins / ❌ Losses : `{len(wins)}` / `{len(losses)}`",
-        f"📊 Win rate      : `{win_rate:.1f}%`",
-        f"🏆 Skill         : *{skill}*",
+        f"🎯 Total trades : `{len(history)}`",
+        f"✅ Wins/❌ Loss : `{len(wins)}` / `{len(losses)}`",
+        f"📊 Win rate     : `{win_rate:.1f}%`",
+        f"🏆 Skill        : *{skill}*",
         "",
         f"📅 Closed hari ini : `{len(closed_today)}`",
         f"🔓 Posisi terbuka  : `{len(state['open_positions'])}`",
@@ -473,10 +592,20 @@ def daily_report(state, summaries):
 # ============================================================
 def run_cycle():
     state = load_state()
-    summaries = {}
-    raws = {}
 
-    for sym in SYMBOLS:
+    # 1. Pull latest rules from Hermes
+    pulled = git_pull()
+    new_hash = setups_hash()
+    if pulled and state.get("last_setups_hash") and new_hash != state["last_setups_hash"]:
+        log(f"setups.json changed (hash {state['last_setups_hash'][:8]} -> {new_hash[:8]})")
+        alert_setups_updated()
+    state["last_setups_hash"] = new_hash
+
+    # 2. Fetch market data
+    setups_data = load_setups()
+    symbols = setups_data.get("symbols", ["SOLUSDT"])
+    summaries, raws = {}, {}
+    for sym in symbols:
         raw = fetch_market(sym)
         s = summarize_market(sym, raw)
         if s:
@@ -486,20 +615,24 @@ def run_cycle():
             snap_path.write_text(json.dumps(s, indent=2, default=str))
             log(f"{sym} ${s['price']:.2f} | LS {s.get('ls_retail_long_pct',0):.1f}% | smart {s.get('ls_smart_long_pct',0):.1f}% | taker {s.get('taker_latest',0):.2f}")
 
-    # Check open positions for SL/TP
+    # 3. Evaluate open positions (close on SL/TP)
+    closed_any = False
     for sym, summary in summaries.items():
         for (pos, exit_price, reason) in evaluate_open_positions(state, summary):
-            close_position(state, pos, exit_price, reason)
+            close_position(state, pos, exit_price, reason, summary)
             equity = state["cash"] + sum(p["size_usd"] for p in state["open_positions"])
             alert_close(pos, reason, equity)
+            closed_any = True
 
-    # Check triggers
+    # 4. Evaluate triggers (open new)
+    opened_any = False
     for sym, summary in summaries.items():
-        for (setup, entry_price, reason) in evaluate_triggers(state, summary, raws[sym]):
-            pos = open_position(state, setup, entry_price, reason)
+        for (setup, entry_price, reason) in evaluate_triggers(state, summary, raws[sym], setups_data):
+            pos = open_position(state, setup, entry_price, reason, summary)
             alert_trigger(pos, reason, summary)
+            opened_any = True
 
-    # Periodic pulse if significant change
+    # 5. Pulse if significant change
     last = state.get("last_snapshot", {})
     significant = False
     for sym, s in summaries.items():
@@ -507,35 +640,65 @@ def run_cycle():
         if not prev:
             significant = True
         else:
-            if abs(s["price"] - prev.get("price", s["price"])) / s["price"] > 0.005:
+            if abs(s["price"] - prev.get("price", s["price"])) / max(s["price"], 1) > 0.005:
                 significant = True
             if abs(s.get("ls_retail_long_pct", 0) - prev.get("ls_retail_long_pct", 0)) > 1.0:
                 significant = True
     state["last_snapshot"] = summaries
     save_state(state)
-
-    if significant:
+    if significant and not opened_any and not closed_any:
         alert_periodic(state, summaries)
 
-    # Daily report
+    # 6. Daily report
     today = utcnow().strftime("%Y-%m-%d")
     if utcnow().hour == DAILY_REPORT_HOUR_UTC and state.get("last_daily_report_date") != today:
         daily_report(state, summaries)
 
+    # 7. Push bot-owned files to git (state, history, snapshots, lessons)
+    bot_files = [STATE_FILE, HISTORY_FILE, LESSONS_FILE]
+    bot_files = [f for f in bot_files if f.exists()]
+    new_snaps = list(SNAP_DIR.glob(f"*_{utcnow().strftime('%Y%m%d_%H')}*.json"))
+    bot_files.extend(new_snaps)
+    if closed_any or opened_any:
+        commit_msg = f"[bot] cycle {utcnow().strftime('%Y-%m-%d %H:%M')} - {('opened' if opened_any else '')+('+closed' if closed_any else '')}"
+        git_push_files(bot_files, commit_msg)
+    elif utcnow().minute < (POLL_INTERVAL_SEC // 60) + 1 and utcnow().hour % 6 == 0:
+        # Push state every 6h even if quiet, to keep history visible
+        git_push_files(bot_files, f"[bot] heartbeat {utcnow().strftime('%Y-%m-%d %H:%M')}")
+
+
+def startup():
+    log(f"HERMES bot v2 start | repo={GITHUB_REPO}@{GITHUB_BRANCH}")
+    log(f"  TG: {'configured' if TG_TOKEN and TG_CHAT_ID else 'MISSING'}")
+    log(f"  GIT: {'configured' if GITHUB_TOKEN else 'READ-ONLY (no token)'}")
+    log(f"  Poll interval: {POLL_INTERVAL_SEC}s")
+    if GITHUB_TOKEN:
+        git_configure_remote()
+    if "--startup-msg" in sys.argv:
+        loaded = load_setups()
+        n_setups = sum(len(v) for v in loaded.get("setups", {}).values())
+        tg_send(
+            f"🟢 *HERMES BOT v2 STARTED*\n"
+            f"Repo: `{GITHUB_REPO}@{GITHUB_BRANCH}`\n"
+            f"Symbols: `{', '.join(loaded.get('symbols', []))}`\n"
+            f"Active setups: `{n_setups}`\n"
+            f"Poll: every `{POLL_INTERVAL_SEC//60}` minutes\n"
+            f"Git sync: `{'ON' if GITHUB_TOKEN else 'OFF (read-only)'}`"
+        )
+
 
 def main():
     loop = "--loop" in sys.argv
-    log(f"HERMES bot start | loop={loop} | symbols={SYMBOLS} | poll={POLL_INTERVAL_SEC}s")
-    if "--startup-msg" in sys.argv:
-        tg_send("🟢 *HERMES BOT STARTED*\nAutonomous polling aktif.")
+    once = "--once" in sys.argv
+    startup()
     try:
         while True:
             try:
                 run_cycle()
             except Exception as e:
                 log(f"CYCLE ERROR: {e}")
-                tg_send(f"⚠️ *Hermes error*: `{str(e)[:200]}`")
-            if not loop:
+                tg_send(f"⚠️ *Hermes bot error*: `{str(e)[:200]}`")
+            if once or not loop:
                 break
             time.sleep(POLL_INTERVAL_SEC)
     except KeyboardInterrupt:

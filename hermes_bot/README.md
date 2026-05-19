@@ -1,120 +1,167 @@
-# HERMES Trading Bot
+# HERMES Trading Bot v2 — Auto Git Sync Edition
 
-Autonomous paper trading bot. Polls Binance market data, evaluates setups against
-the rule book, executes paper trades, and sends Telegram alerts.
+Autonomous paper trading bot yang **belajar bareng Hermes (AI di Kiro)** via Git.
 
-**Zero external dependencies** — pure Python 3.7+ standard library only.
+## 🧠 Arsitektur Pembelajaran
 
-## Quick Start
+```
+GitHub repo (single source of truth)
+├── setups.json          ← Hermes write, bot read each cycle
+├── HERMES_RULE_BOOK.md  ← Hermes write (reasoning)
+├── trade_history.json   ← bot write (auto)
+├── state.json           ← bot write (auto)
+├── lessons_log.md       ← bot append (auto)
+└── snapshots/           ← bot write (auto)
+
+[Bot @ Termux]                    [Hermes @ Kiro]
+   ↓ git pull tiap cycle              ↑ git pull saat user chat
+   - Pakai setups.json terbaru        - Baca lessons_log.md
+   - Trade jika trigger valid          - Analisis pola
+   ↓ git push setelah trade            - Update setups.json
+   - trade_history, state              ↓ git push
+   - lessons_log.md                    - Bot pakai rule baru cycle berikutnya
+```
+
+## 🚀 Setup di Termux Android
+
+### 1. Install Termux dari F-Droid (BUKAN Play Store!)
+[https://f-droid.org/packages/com.termux/](https://f-droid.org/packages/com.termux/)
+
+### 2. Buka Termux dan jalankan:
 
 ```bash
-# Test once (sends a test message + runs one cycle)
-python3 hermes_bot.py --startup-msg
+# Update package & install dependencies
+pkg update -y && pkg install -y python git
 
-# Run forever (polls every 10 minutes)
-python3 hermes_bot.py --loop
+# Clone repo (branch khusus bot, bukan main)
+git clone -b hermes-trading-bot https://github.com/fagriyawan/fagriyawan.github.io.git hermes
+cd hermes/hermes_bot
 
-# Override credentials with env vars
-export TG_TOKEN="your_token"
-export TG_CHAT_ID="your_chat_id"
-python3 hermes_bot.py --loop
+# Run interactive setup script (akan tanya GitHub token)
+bash setup_termux.sh
 ```
 
-## Deploy options
+### 3. Get GitHub Personal Access Token
 
-### A. Linux VPS (systemd) — RECOMMENDED for 24/7
-```ini
-# /etc/systemd/system/hermes.service
-[Unit]
-Description=Hermes Trading Bot
-After=network.target
+1. Buka [github.com/settings/tokens?type=beta](https://github.com/settings/tokens?type=beta) di browser HP
+2. **Generate new token** (Fine-grained personal access token)
+3. **Token name:** `hermes-bot`
+4. **Expiration:** 90 days (atau custom)
+5. **Repository access:** Only select repositories → pilih `fagriyawan.github.io`
+6. **Permissions:**
+   - Contents: **Read and write**
+   - Metadata: Read-only (auto)
+7. Klik **Generate token**, copy token-nya
+8. Paste ke setup script saat ditanya
 
-[Service]
-Type=simple
-WorkingDirectory=/opt/hermes_bot
-ExecStart=/usr/bin/python3 /opt/hermes_bot/hermes_bot.py --loop
-Restart=always
-User=hermes
-
-[Install]
-WantedBy=multi-user.target
-```
+### 4. Run dalam loop mode (24/7)
 
 ```bash
-sudo systemctl enable --now hermes
-journalctl -u hermes -f
+# Cara 1: foreground (cocok untuk testing)
+python hermes_bot.py --loop
+
+# Cara 2: background dengan nohup (cocok produksi)
+nohup python hermes_bot.py --loop > bot.log 2>&1 &
+echo "Bot PID: $!"
+
+# Cara 3: background dengan tmux (recommended)
+pkg install tmux
+tmux new -s hermes
+python hermes_bot.py --loop
+# Detach: Ctrl+B lalu D
+# Re-attach: tmux attach -t hermes
 ```
 
-### B. Local cron
+### 5. Cegah Termux dimatikan Android
+
+Di Termux:
 ```bash
-crontab -e
-# add:
-*/10 * * * * cd /home/user/hermes_bot && /usr/bin/python3 hermes_bot.py >> bot.log 2>&1
+termux-wake-lock
 ```
 
-### C. GitHub Actions (free, every 10 min)
-```yaml
-# .github/workflows/hermes.yml
-name: Hermes
-on:
-  schedule:
-    - cron: '*/10 * * * *'
-  workflow_dispatch:
-jobs:
-  run:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - run: python3 hermes_bot.py
-        env:
-          TG_TOKEN: ${{ secrets.TG_TOKEN }}
-          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
-      - uses: actions/upload-artifact@v4
-        with:
-          name: hermes-state
-          path: |
-            state.json
-            trade_history.json
-            snapshots/
+Di setting HP:
+- **Battery optimization:** disable untuk Termux
+- **Background activity:** allowed
+
+## 📡 Pesan Telegram yang akan Anda terima
+
+| Trigger | Format |
+|---|---|
+| 🟢 Startup | Bot mulai, jumlah setups aktif |
+| 🔥 TRIGGER | Setup A/B/C trigger → entry baru |
+| ✅/❌ CLOSE | SL/TP hit, P&L diumumkan |
+| 🟡 PULSE | Price gerak >0.5% atau LS shift >1pp |
+| 📊 DAILY | Tiap 00:00 UTC: equity, win rate, skill |
+| 📚 RULES | Hermes push setups.json baru |
+| ⚠️ ERROR | Kalau ada masalah |
+
+## 🔄 Loop Pembelajaran (yang bikin bot makin pintar)
+
+### Langkah 1 — Bot trade otomatis di Termux
+Bot pull `setups.json` setiap 10 menit. Kalau trigger valid, eksekusi.
+Setelah close, push `trade_history.json` + append `lessons_log.md` ke git.
+
+### Langkah 2 — Anda chat Hermes di Kiro (sehari sekali / seminggu sekali)
+```
+"Hermes, review lessons_log.md dan update rule book"
 ```
 
-### D. Replit / Railway / Render
-Upload, set start command to `python3 hermes_bot.py --loop`.
+Hermes akan:
+1. `git pull` lessons dan history terbaru
+2. Analisis tiap trade (kenapa win/loss?)
+3. Update `HERMES_RULE_BOOK.md` (tambah rule baru)
+4. Update `setups.json` (adjust setup baru, disable yang gagal terus)
+5. `git push` perubahan
 
-## What each cycle does
+### Langkah 3 — Bot pull rule baru tiap cycle
+Cycle berikutnya, bot deteksi `setups.json` berubah → pakai rule baru → kirim alert
+"📚 RULES UPDATED" ke Telegram.
 
-1. **Fetch** spot ticker + klines (4h/1h/15m), OI history, retail L/S, smart-money
-   L/S (top trader position), taker B/S ratio.
-2. **Evaluate open positions** — close on SL or TP, send alert.
-3. **Evaluate pending setups** — check trigger conditions, open new position on
-   trigger, send alert.
-4. **Periodic pulse** — if price moved >0.5% or L/S shifted >1pp.
-5. **Daily report** — at 00:00 UTC: equity, win rate, skill level breakdown.
+## 🛡️ Safety Features
 
-## State files
+- **Paper trading only** — no real funds
+- **Setup deduplication** — `consumed_setup_ids` mencegah re-entry sama
+- **Rebase on pull** — prevent merge conflicts dengan Hermes update
+- **Read-only fallback** — bot tetap jalan kalau GITHUB_TOKEN missing (no push)
+- **Error alerts** — exception → Telegram notification
 
-- `state.json` — portfolio, open positions, pending setups, last snapshot
-- `trade_history.json` — all closed trades for stats
-- `snapshots/` — periodic timestamped market snapshots
+## 🧰 Maintenance Commands
 
-## Pre-loaded setups (TRADE_LOG_SOL_003)
+```bash
+# Lihat status process
+ps aux | grep hermes_bot
 
-| Setup | Type | Entry | Size | SL | TP1 / TP2 / TP3 |
-|---|---|---|---|---|---|
-| A | SHORT rejection | $85.20-$85.60 | $300 | $86.10 | $83.50 / $81.63 |
-| B | SHORT breakdown | <$83.45 (15m close) | $400 | $84.30 | $81.63 / $80.80 / $76.70 |
-| C | SHORT scout | $84.70-$84.90 | $150 | $85.30 | $83.50 / $81.63 |
+# Lihat log realtime
+tail -f bot.log
 
-Total max exposure: $850 (8.5% modal). Aggregate risk: ~$127 (1.27%). Compliant
-with RULE #009 (max 1% risk/trade, 10% total exposure).
+# Stop bot
+pkill -f hermes_bot
 
-## Notes
+# Force pull rules manual
+git pull --rebase origin hermes-trading-bot
 
-- **Paper trading only.** No real funds touched.
-- Endpoints `fapi.binance.com` and `api.binance.com` may be 451-blocked from some
-  hosts. Bot uses `data-api.binance.vision` and `www.binance.com/futures/data/...`
-  which generally work globally.
-- Token in script is the one provided during setup. For production, use env vars:
-  `TG_TOKEN` and `TG_CHAT_ID`.
-- To extend to more coins, edit `SYMBOLS` and add corresponding setups in
-  `bootstrap_setups()`.
+# Lihat trade history
+cat trade_history.json | python -m json.tool
+
+# Lihat state portfolio
+cat state.json | python -m json.tool
+```
+
+## 📋 Env Vars (.env)
+
+| Var | Required | Default | Deskripsi |
+|---|---|---|---|
+| TG_TOKEN | ✅ | — | Telegram bot token |
+| TG_CHAT_ID | ✅ | — | Telegram chat id Anda |
+| GITHUB_TOKEN | ✅ | — | GitHub PAT untuk git push |
+| GITHUB_REPO | — | `fagriyawan/fagriyawan.github.io` | repo yang dipakai |
+| GITHUB_BRANCH | — | `hermes-trading-bot` | branch yang dipakai |
+| POLL_INTERVAL_SEC | — | `600` | interval polling (detik) |
+| DAILY_REPORT_HOUR_UTC | — | `0` | jam UTC untuk daily report |
+
+## ⚠️ Known Limitations
+
+- Termux di Android bisa di-kill OS kalau RAM penuh / battery saver agresif
+- Untuk truly bullet-proof 24/7, deploy ke VPS murah ($3-5/bulan)
+- Setup C (scout) bisa retrigger di range — saat ini di-prevent oleh `consumed_setup_ids`,
+  tapi untuk frequent re-entry pattern butuh re-design
