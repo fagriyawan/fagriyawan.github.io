@@ -2,32 +2,56 @@
   "version": "2.0",
   "started_at": "2026-05-19T16:34:58.497949+00:00",
   "modal_awal": 10000.0,
-  "cash": 10000.0,
-  "open_positions": [],
-  "consumed_setup_ids": [],
+  "cash": 9850.0,
+  "open_positions": [
+    {
+      "trade_id": "TRADE_0001",
+      "setup_id": "SOL_SETUP_C",
+      "symbol": "SOLUSDT",
+      "side": "SHORT",
+      "entry_price": 84.72,
+      "size_usd": 150,
+      "qty": 1.7705,
+      "sl": 85.3,
+      "tp_levels": [
+        83.5,
+        81.63
+      ],
+      "opened_at": "2026-05-19T16:49:12.988080+00:00",
+      "reason": "Price $84.72 in scout zone + bearish 15m",
+      "status": "OPEN",
+      "market_at_open": {
+        "symbol": "SOLUSDT",
+        "price": 84.72,
+        "change_24h": 0.379,
+        "high_24h": 85.97,
+        "low_24h": 83.5,
+        "vol_quote_usd": 163117546.38318,
+        "k15m_open": 84.74,
+        "k15m_high": 84.8,
+        "k15m_low": 84.72,
+        "k15m_close": 84.72
+      }
+    }
+  ],
+  "consumed_setup_ids": [
+    "SOL_SETUP_C"
+  ],
   "last_snapshot": {
     "SOLUSDT": {
       "symbol": "SOLUSDT",
-      "price": 84.66,
-      "change_24h": 0.546,
+      "price": 84.72,
+      "change_24h": 0.379,
       "high_24h": 85.97,
       "low_24h": 83.5,
-      "vol_quote_usd": 163913748.45311,
-      "oi_usd": 817603200.2048,
-      "oi_units": 9696432.64,
-      "oi_change_24h_pct": -0.453437766343753,
-      "ls_retail_long_pct": 76.16000000000001,
-      "ls_smart_long_pct": 63.660000000000004,
-      "divergence_pp": 12.500000000000007,
-      "taker_latest": 0.9609,
-      "taker_avg_3h": 0.8975333333333334,
-      "k15m_open": 84.38,
-      "k15m_high": 84.67,
-      "k15m_low": 84.38,
-      "k15m_close": 84.66
+      "vol_quote_usd": 163117546.38318,
+      "k15m_open": 84.74,
+      "k15m_high": 84.8,
+      "k15m_low": 84.72,
+      "k15m_close": 84.72
     }
   },
   "last_daily_report_date": null,
   "last_setups_hash": "de689bf370486dcb014ef85bfaea9532",
-  "trade_counter": 0
+  "trade_counter": 1
 }
