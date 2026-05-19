@@ -31,7 +31,9 @@
         "k15m_high": 84.8,
         "k15m_low": 84.72,
         "k15m_close": 84.72
-      }
+      },
+      "max_high_since_open": 84.99,
+      "min_low_since_open": 84.41
     }
   ],
   "consumed_setup_ids": [
@@ -41,14 +43,22 @@
     "SOLUSDT": {
       "symbol": "SOLUSDT",
       "price": 84.72,
-      "change_24h": 0.379,
-      "high_24h": 85.97,
-      "low_24h": 83.5,
-      "vol_quote_usd": 163117546.38318,
-      "k15m_open": 84.74,
-      "k15m_high": 84.8,
-      "k15m_low": 84.72,
-      "k15m_close": 84.72
+      "change_24h": 0.76,
+      "high_24h": 85.96,
+      "low_24h": 83.51,
+      "vol_quote_usd": 74270722.81236,
+      "oi_usd": 600762240.0,
+      "oi_units": 7088640.0,
+      "oi_change_24h_pct": -2.190038855528082,
+      "ls_retail_long_pct": 71.46203665426485,
+      "ls_smart_long_pct": 40.27363953226894,
+      "divergence_pp": 31.188397121995912,
+      "taker_latest": 1.025624828922157,
+      "taker_avg_3h": 1.2515884864628115,
+      "k15m_open": 84.64,
+      "k15m_high": 84.77,
+      "k15m_low": 84.54,
+      "k15m_close": 84.68
     }
   },
   "last_daily_report_date": null,
