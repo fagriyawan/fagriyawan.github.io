@@ -206,99 +206,190 @@ def tg_send(text, parse_mode="Markdown"):
 # ============================================================
 # DATA FETCH
 # ============================================================
-def fetch_market(symbol):
-    """Fetch market data with multi-source fallback chain.
+def _gate_symbol(symbol):
+    """Convert SOLUSDT -> SOL_USDT (Gate.io format)."""
+    if symbol.endswith("USDT"):
+        return symbol[:-4] + "_USDT"
+    return symbol
 
-    Each metric tries:
-      1. www.binance.com/futures/data/* (works from US, often fails from Indonesia)
-      2. fapi.binance.com/futures/data/* (may work from some regions)
-      3. OKX equivalent (different schema, adapter applied)
+def fetch_market(symbol):
+    """Fetch market data — Gate.io PRIMARY, multi-source fallback.
+
+    Priority (Indonesia-friendly, no Binance dependency):
+      1. Gate.io contract_stats — gives OI + LS retail + LS top (smart) + taker
+         in ONE call. Plus funding rate. Not geo-blocked.
+      2. Bitget — fallback for ticker + LS account
+      3. OKX — fallback for OI + LS account
+      4. Binance (data-api.binance.vision) — spot ticker/klines (usually works)
+
+    Adapts everything to Binance-equivalent schema for downstream code.
     """
     out = {"sources": {}}
+    gate_sym = _gate_symbol(symbol)
 
-    # SPOT data — single reliable mirror
-    spot_endpoints = {
-        "ticker":  f"{BASE_SPOT}/api/v3/ticker/24hr?symbol={symbol}",
-        "k4h":     f"{BASE_SPOT}/api/v3/klines?symbol={symbol}&interval=4h&limit=30",
-        "k1h":     f"{BASE_SPOT}/api/v3/klines?symbol={symbol}&interval=1h&limit=24",
-        "k15m":    f"{BASE_SPOT}/api/v3/klines?symbol={symbol}&interval=15m&limit=8",
-    }
-    for k, u in spot_endpoints.items():
+    # =========================================================
+    # 1. Gate.io contract_stats — JACKPOT endpoint
+    # =========================================================
+    try:
+        stats = http_get_json(
+            f"https://api.gateio.ws/api/v4/futures/usdt/contract_stats?contract={gate_sym}&interval=1h&limit=24"
+        )
+        if isinstance(stats, list) and stats:
+            # Adapt to Binance schemas
+            # OI history
+            oi_hist = []
+            ls_global_hist = []
+            ls_top_hist = []
+            taker_hist = []
+            last_price_gate = float(stats[-1].get("mark_price", 0))
+            for s in stats:
+                ts = int(s["time"]) * 1000
+                oi_units = float(s.get("open_interest", 0))
+                oi_hist.append({
+                    "symbol": symbol,
+                    "sumOpenInterest": str(oi_units),
+                    "sumOpenInterestValue": str(oi_units * last_price_gate),
+                    "timestamp": ts,
+                })
+                # lsr_account = long/short ratio (e.g. 2.44 = 2.44 long per short)
+                lsr_acc = float(s.get("lsr_account", 1))
+                long_pct = lsr_acc / (1 + lsr_acc) if lsr_acc > 0 else 0.5
+                ls_global_hist.append({
+                    "symbol": symbol,
+                    "longAccount": str(long_pct),
+                    "shortAccount": str(1 - long_pct),
+                    "longShortRatio": str(lsr_acc),
+                    "timestamp": ts,
+                })
+                # top_lsr_size = top trader long/short ratio by size (smart money)
+                lsr_top = float(s.get("top_lsr_size", 1))
+                top_long_pct = lsr_top / (1 + lsr_top) if lsr_top > 0 else 0.5
+                ls_top_hist.append({
+                    "symbol": symbol,
+                    "longAccount": str(top_long_pct),
+                    "shortAccount": str(1 - top_long_pct),
+                    "longShortRatio": str(lsr_top),
+                    "timestamp": ts,
+                })
+                # lsr_taker = taker buy/sell ratio
+                taker_ratio = float(s.get("lsr_taker", 1))
+                taker_hist.append({
+                    "buySellRatio": str(taker_ratio),
+                    "buyVol": "0",
+                    "sellVol": "0",
+                    "timestamp": ts,
+                })
+            out["oi"] = oi_hist
+            out["ls_global"] = ls_global_hist
+            out["ls_topPos"] = ls_top_hist
+            out["taker"] = taker_hist
+            out["sources"]["oi"] = "gate.io"
+            out["sources"]["ls_global"] = "gate.io"
+            out["sources"]["ls_topPos"] = "gate.io"
+            out["sources"]["taker"] = "gate.io"
+            # BONUS: extract liquidation data
+            last = stats[-1]
+            out["liquidation_24h"] = {
+                "long_usd": sum(float(s.get("long_liq_usd", 0)) for s in stats),
+                "short_usd": sum(float(s.get("short_liq_usd", 0)) for s in stats),
+            }
+            log(f"Gate.io stats OK: OI={float(last['open_interest']):.0f}, "
+                f"LS={float(last['lsr_account']):.2f}, top={float(last['top_lsr_size']):.2f}, "
+                f"taker={float(last['lsr_taker']):.2f}")
+    except Exception as e:
+        log(f"Gate.io contract_stats FAIL: {e}")
+
+    # =========================================================
+    # 2. Funding rate (BONUS — Binance fapi was blocked)
+    # =========================================================
+    try:
+        fr = http_get_json(
+            f"https://api.gateio.ws/api/v4/futures/usdt/funding_rate?contract={gate_sym}&limit=8"
+        )
+        if isinstance(fr, list) and fr:
+            out["funding"] = fr
+            out["sources"]["funding"] = "gate.io"
+    except Exception as e:
+        log(f"Gate.io funding FAIL: {e}")
+
+    # =========================================================
+    # 3. Spot ticker — try Gate.io, Bitget, then Binance vision
+    # =========================================================
+    ticker_sources = [
+        ("gate.io", f"https://api.gateio.ws/api/v4/spot/tickers?currency_pair={gate_sym}"),
+        ("bitget",  f"https://api.bitget.com/api/v2/mix/market/ticker?symbol={symbol}&productType=USDT-FUTURES"),
+        ("binance-vision", f"{BASE_SPOT}/api/v3/ticker/24hr?symbol={symbol}"),
+    ]
+    for src, url in ticker_sources:
         try:
-            out[k] = http_get_json(u)
-            out["sources"][k] = "binance-vision"
-        except Exception as e:
-            log(f"fetch {symbol}/{k} FAIL: {e}")
-            out[k] = None
+            d = http_get_json(url)
+            if src == "gate.io" and isinstance(d, list) and d:
+                t = d[0]
+                # Adapt Gate spot ticker to Binance ticker schema
+                last = float(t["last"])
+                out["ticker"] = {
+                    "symbol": symbol,
+                    "lastPrice": t["last"],
+                    "priceChangePercent": t["change_percentage"],
+                    "highPrice": t["high_24h"],
+                    "lowPrice": t["low_24h"],
+                    "openPrice": str(last / (1 + float(t["change_percentage"])/100)),
+                    "volume": t["base_volume"],
+                    "quoteVolume": t["quote_volume"],
+                }
+            elif src == "bitget" and d.get("code") == "00000" and d.get("data"):
+                t = d["data"][0]
+                last = float(t["lastPr"])
+                high = float(t["high24h"])
+                low = float(t["low24h"])
+                change_pct = float(t.get("change24h", 0)) * 100
+                out["ticker"] = {
+                    "symbol": symbol,
+                    "lastPrice": str(last),
+                    "priceChangePercent": str(change_pct),
+                    "highPrice": str(high),
+                    "lowPrice": str(low),
+                    "openPrice": str(last / (1 + change_pct/100)) if change_pct else str(last),
+                    "volume": t.get("baseVolume", "0"),
+                    "quoteVolume": t.get("quoteVolume", "0"),
+                }
+            elif src == "binance-vision":
+                out["ticker"] = d
+            out["sources"]["ticker"] = src
+            break
+        except Exception:
+            continue
+    if not out.get("ticker"):
+        log(f"All ticker sources FAILED for {symbol}")
 
-    # FUTURES data — multi-mirror + OKX fallback
-    okx_inst = symbol.replace("USDT", "-USDT-SWAP")
-    okx_ccy  = symbol.replace("USDT", "")
+    # =========================================================
+    # 4. Klines — Gate.io futures, then Binance spot
+    # =========================================================
+    def gate_klines(interval, limit):
+        url = f"https://api.gateio.ws/api/v4/futures/usdt/candlesticks?contract={gate_sym}&interval={interval}&limit={limit}"
+        d = http_get_json(url)
+        # Adapt Gate kline schema to Binance schema [openTime, o, h, l, c, vol, ...]
+        return [
+            [int(k["t"])*1000, k["o"], k["h"], k["l"], k["c"], k["v"], 0, k.get("sum","0"), 0, 0, 0, 0]
+            for k in d
+        ]
 
-    fallback_chains = {
-        "oi": [
-            f"{BASE_WWW}/futures/data/openInterestHist?symbol={symbol}&period=1h&limit=24",
-            f"https://fapi.binance.com/futures/data/openInterestHist?symbol={symbol}&period=1h&limit=24",
-        ],
-        "ls_global": [
-            f"{BASE_WWW}/futures/data/globalLongShortAccountRatio?symbol={symbol}&period=1h&limit=12",
-            f"https://fapi.binance.com/futures/data/globalLongShortAccountRatio?symbol={symbol}&period=1h&limit=12",
-        ],
-        "ls_topPos": [
-            f"{BASE_WWW}/futures/data/topLongShortPositionRatio?symbol={symbol}&period=1h&limit=12",
-            f"https://fapi.binance.com/futures/data/topLongShortPositionRatio?symbol={symbol}&period=1h&limit=12",
-        ],
-        "taker": [
-            f"{BASE_WWW}/futures/data/takerlongshortRatio?symbol={symbol}&period=1h&limit=12",
-            f"https://fapi.binance.com/futures/data/takerlongshortRatio?symbol={symbol}&period=1h&limit=12",
-        ],
-    }
-
-    last_price = float(out["ticker"]["lastPrice"]) if out.get("ticker") else 0
-
-    for k, urls in fallback_chains.items():
+    kline_specs = {"k4h": ("4h", 30), "k1h": ("1h", 24), "k15m": ("15m", 8)}
+    for k, (interval, limit) in kline_specs.items():
+        success = False
+        # Try Gate.io first
         try:
-            data, source = http_get_with_fallback(urls)
-            out[k] = data
-            out["sources"][k] = source
+            out[k] = gate_klines(interval, limit)
+            out["sources"][k] = "gate.io"
+            success = True
         except Exception as e:
-            log(f"fetch {symbol}/{k} all Binance mirrors FAIL: {str(e)[:60]}")
-            # OKX fallback
+            log(f"Gate klines {interval} FAIL: {str(e)[:60]}")
+        if not success:
             try:
-                if k == "oi":
-                    okx = http_get_json(f"https://www.okx.com/api/v5/public/open-interest?instType=SWAP&instId={okx_inst}")
-                    if okx.get("code") == "0" and okx.get("data"):
-                        oi_ccy = float(okx["data"][0]["oiCcy"])
-                        ts = int(time.time() * 1000)
-                        out[k] = [{
-                            "symbol": symbol,
-                            "sumOpenInterest": str(oi_ccy),
-                            "sumOpenInterestValue": str(oi_ccy * last_price),
-                            "timestamp": ts,
-                        }]
-                        out["sources"][k] = "okx-fallback"
-                        log(f"  OKX fallback OK for {k}: OI={oi_ccy:.0f}")
-                elif k == "ls_global":
-                    okx = http_get_json(f"https://www.okx.com/api/v5/rubik/stat/contracts/long-short-account-ratio?ccy={okx_ccy}&period=1H")
-                    if okx.get("code") == "0" and okx.get("data"):
-                        adapted = []
-                        for ts, ratio in okx["data"][:12]:
-                            r = float(ratio)
-                            long_pct = r / (1 + r)
-                            adapted.append({
-                                "symbol": symbol,
-                                "longAccount": str(long_pct),
-                                "shortAccount": str(1 - long_pct),
-                                "longShortRatio": str(r),
-                                "timestamp": int(ts),
-                            })
-                        out[k] = list(reversed(adapted))
-                        out["sources"][k] = "okx-fallback"
-                        log(f"  OKX fallback OK for {k}: latest L/S={adapted[0]['longShortRatio']}")
-                else:
-                    out[k] = None
-            except Exception as e2:
-                log(f"  OKX fallback also failed for {k}: {str(e2)[:60]}")
+                out[k] = http_get_json(f"{BASE_SPOT}/api/v3/klines?symbol={symbol}&interval={interval}&limit={limit}")
+                out["sources"][k] = "binance-vision"
+            except Exception as e:
+                log(f"Binance klines {interval} FAIL: {str(e)[:60]}")
                 out[k] = None
 
     return out
@@ -573,27 +664,40 @@ def evaluate_triggers(state, summary, raw, setups_data):
 
 
 def evaluate_open_positions(state, summary):
+    """Check SL/TP. Tracks max_high_seen and min_low_seen per position
+    since open, updated each cycle. Avoids using 24h high/low which can
+    span before position was opened.
+    """
     closes = []
     price = summary["price"]
-    high_24h = summary.get("high_24h", price)
-    low_24h  = summary.get("low_24h", price)
+    high_15m = summary.get("k15m_high", price)
+    low_15m  = summary.get("k15m_low", price)
     for pos in list(state["open_positions"]):
         if pos["symbol"] != summary["symbol"]:
             continue
+
+        # Update high/low watermark since open
+        prev_high = pos.get("max_high_since_open", pos["entry_price"])
+        prev_low  = pos.get("min_low_since_open", pos["entry_price"])
+        pos["max_high_since_open"] = max(prev_high, high_15m, price)
+        pos["min_low_since_open"]  = min(prev_low,  low_15m,  price)
+
         if pos["side"] == "SHORT":
-            if high_24h >= pos["sl"] and price >= pos["sl"] * 0.999:
-                closes.append((pos, pos["sl"], "STOP LOSS hit"))
+            # SL: price reached SL since open OR currently near SL
+            if pos["max_high_since_open"] >= pos["sl"] or price >= pos["sl"]:
+                closes.append((pos, pos["sl"], "STOP LOSS hit (price reached SL)"))
                 continue
+            # TP: only fire if price touched TP level since open or current at TP
             for tp in pos["tp_levels"]:
-                if low_24h <= tp and price <= tp * 1.005:
+                if pos["min_low_since_open"] <= tp or price <= tp:
                     closes.append((pos, tp, f"TP @ ${tp:.2f} hit"))
                     break
-        else:
-            if low_24h <= pos["sl"] and price <= pos["sl"] * 1.001:
-                closes.append((pos, pos["sl"], "STOP LOSS hit"))
+        else:  # LONG
+            if pos["min_low_since_open"] <= pos["sl"] or price <= pos["sl"]:
+                closes.append((pos, pos["sl"], "STOP LOSS hit (price reached SL)"))
                 continue
             for tp in pos["tp_levels"]:
-                if high_24h >= tp and price >= tp * 0.995:
+                if pos["max_high_since_open"] >= tp or price >= tp:
                     closes.append((pos, tp, f"TP @ ${tp:.2f} hit"))
                     break
     return closes
