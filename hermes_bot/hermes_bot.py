@@ -95,6 +95,17 @@ def http_get_json(url, timeout=15):
     with urllib.request.urlopen(req, timeout=timeout, context=CTX) as r:
         return json.loads(r.read().decode())
 
+def http_get_with_fallback(urls, timeout=10):
+    """Try each URL in order, return (data, source) on first success."""
+    last_err = None
+    for url in urls:
+        try:
+            return http_get_json(url, timeout), url
+        except Exception as e:
+            last_err = e
+            continue
+    raise last_err if last_err else Exception("no urls provided")
+
 def http_post_json(url, payload, timeout=15):
     data = json.dumps(payload).encode()
     req = urllib.request.Request(url, data=data,
@@ -196,23 +207,100 @@ def tg_send(text, parse_mode="Markdown"):
 # DATA FETCH
 # ============================================================
 def fetch_market(symbol):
-    urls = {
-        "ticker":    f"{BASE_SPOT}/api/v3/ticker/24hr?symbol={symbol}",
-        "k4h":       f"{BASE_SPOT}/api/v3/klines?symbol={symbol}&interval=4h&limit=30",
-        "k1h":       f"{BASE_SPOT}/api/v3/klines?symbol={symbol}&interval=1h&limit=24",
-        "k15m":      f"{BASE_SPOT}/api/v3/klines?symbol={symbol}&interval=15m&limit=8",
-        "oi":        f"{BASE_WWW}/futures/data/openInterestHist?symbol={symbol}&period=1h&limit=24",
-        "ls_global": f"{BASE_WWW}/futures/data/globalLongShortAccountRatio?symbol={symbol}&period=1h&limit=12",
-        "ls_topPos": f"{BASE_WWW}/futures/data/topLongShortPositionRatio?symbol={symbol}&period=1h&limit=12",
-        "taker":     f"{BASE_WWW}/futures/data/takerlongshortRatio?symbol={symbol}&period=1h&limit=12",
+    """Fetch market data with multi-source fallback chain.
+
+    Each metric tries:
+      1. www.binance.com/futures/data/* (works from US, often fails from Indonesia)
+      2. fapi.binance.com/futures/data/* (may work from some regions)
+      3. OKX equivalent (different schema, adapter applied)
+    """
+    out = {"sources": {}}
+
+    # SPOT data — single reliable mirror
+    spot_endpoints = {
+        "ticker":  f"{BASE_SPOT}/api/v3/ticker/24hr?symbol={symbol}",
+        "k4h":     f"{BASE_SPOT}/api/v3/klines?symbol={symbol}&interval=4h&limit=30",
+        "k1h":     f"{BASE_SPOT}/api/v3/klines?symbol={symbol}&interval=1h&limit=24",
+        "k15m":    f"{BASE_SPOT}/api/v3/klines?symbol={symbol}&interval=15m&limit=8",
     }
-    out = {}
-    for k, u in urls.items():
+    for k, u in spot_endpoints.items():
         try:
             out[k] = http_get_json(u)
+            out["sources"][k] = "binance-vision"
         except Exception as e:
             log(f"fetch {symbol}/{k} FAIL: {e}")
             out[k] = None
+
+    # FUTURES data — multi-mirror + OKX fallback
+    okx_inst = symbol.replace("USDT", "-USDT-SWAP")
+    okx_ccy  = symbol.replace("USDT", "")
+
+    fallback_chains = {
+        "oi": [
+            f"{BASE_WWW}/futures/data/openInterestHist?symbol={symbol}&period=1h&limit=24",
+            f"https://fapi.binance.com/futures/data/openInterestHist?symbol={symbol}&period=1h&limit=24",
+        ],
+        "ls_global": [
+            f"{BASE_WWW}/futures/data/globalLongShortAccountRatio?symbol={symbol}&period=1h&limit=12",
+            f"https://fapi.binance.com/futures/data/globalLongShortAccountRatio?symbol={symbol}&period=1h&limit=12",
+        ],
+        "ls_topPos": [
+            f"{BASE_WWW}/futures/data/topLongShortPositionRatio?symbol={symbol}&period=1h&limit=12",
+            f"https://fapi.binance.com/futures/data/topLongShortPositionRatio?symbol={symbol}&period=1h&limit=12",
+        ],
+        "taker": [
+            f"{BASE_WWW}/futures/data/takerlongshortRatio?symbol={symbol}&period=1h&limit=12",
+            f"https://fapi.binance.com/futures/data/takerlongshortRatio?symbol={symbol}&period=1h&limit=12",
+        ],
+    }
+
+    last_price = float(out["ticker"]["lastPrice"]) if out.get("ticker") else 0
+
+    for k, urls in fallback_chains.items():
+        try:
+            data, source = http_get_with_fallback(urls)
+            out[k] = data
+            out["sources"][k] = source
+        except Exception as e:
+            log(f"fetch {symbol}/{k} all Binance mirrors FAIL: {str(e)[:60]}")
+            # OKX fallback
+            try:
+                if k == "oi":
+                    okx = http_get_json(f"https://www.okx.com/api/v5/public/open-interest?instType=SWAP&instId={okx_inst}")
+                    if okx.get("code") == "0" and okx.get("data"):
+                        oi_ccy = float(okx["data"][0]["oiCcy"])
+                        ts = int(time.time() * 1000)
+                        out[k] = [{
+                            "symbol": symbol,
+                            "sumOpenInterest": str(oi_ccy),
+                            "sumOpenInterestValue": str(oi_ccy * last_price),
+                            "timestamp": ts,
+                        }]
+                        out["sources"][k] = "okx-fallback"
+                        log(f"  OKX fallback OK for {k}: OI={oi_ccy:.0f}")
+                elif k == "ls_global":
+                    okx = http_get_json(f"https://www.okx.com/api/v5/rubik/stat/contracts/long-short-account-ratio?ccy={okx_ccy}&period=1H")
+                    if okx.get("code") == "0" and okx.get("data"):
+                        adapted = []
+                        for ts, ratio in okx["data"][:12]:
+                            r = float(ratio)
+                            long_pct = r / (1 + r)
+                            adapted.append({
+                                "symbol": symbol,
+                                "longAccount": str(long_pct),
+                                "shortAccount": str(1 - long_pct),
+                                "longShortRatio": str(r),
+                                "timestamp": int(ts),
+                            })
+                        out[k] = list(reversed(adapted))
+                        out["sources"][k] = "okx-fallback"
+                        log(f"  OKX fallback OK for {k}: latest L/S={adapted[0]['longShortRatio']}")
+                else:
+                    out[k] = None
+            except Exception as e2:
+                log(f"  OKX fallback also failed for {k}: {str(e2)[:60]}")
+                out[k] = None
+
     return out
 
 
@@ -406,6 +494,24 @@ def close_position(state, pos, exit_price, reason, market_at_close):
 # ============================================================
 # DECISION ENGINE
 # ============================================================
+def has_critical_data_missing(summary, raw):
+    """Returns list of missing data keys."""
+    missing = []
+    if not summary or not summary.get("price"):
+        missing.append("price")
+    if not raw.get("k15m"):
+        missing.append("k15m")
+    if not raw.get("oi") or summary.get("oi_usd") is None:
+        missing.append("oi")
+    if not raw.get("ls_global") or summary.get("ls_retail_long_pct") is None:
+        missing.append("ls_global")
+    if not raw.get("ls_topPos") or summary.get("ls_smart_long_pct") is None:
+        missing.append("ls_smart")
+    if not raw.get("taker") or summary.get("taker_latest") is None:
+        missing.append("taker")
+    return missing
+
+
 def evaluate_triggers(state, summary, raw, setups_data):
     triggers = []
     sym = summary["symbol"]
@@ -414,6 +520,18 @@ def evaluate_triggers(state, summary, raw, setups_data):
         return triggers
     if not raw.get("k15m"):
         return triggers
+
+    # Data quality gate
+    missing = has_critical_data_missing(summary, raw)
+    critical_missing = [m for m in missing if m in ("price", "k15m")]
+    if critical_missing:
+        log(f"BLOCKED: critical data missing {critical_missing}")
+        return triggers
+
+    sentiment_missing = [m for m in missing if m in ("oi", "ls_global", "ls_smart", "taker")]
+    sentiment_blackout = len(sentiment_missing) >= 3
+    if sentiment_blackout:
+        log(f"WARN: sentiment blackout ({sentiment_missing}) — only scout setups allowed")
 
     last_15m = raw["k15m"][-1]
     k_open  = float(last_15m[1])
@@ -431,6 +549,10 @@ def evaluate_triggers(state, summary, raw, setups_data):
         if s["id"] in consumed:
             continue
         s["_symbol"] = sym
+
+        # During sentiment blackout, only allow small scout setups
+        if sentiment_blackout and s["trigger"] != "scout":
+            continue
 
         if s["trigger"] == "rejection":
             zlow, zhigh = s["entry_zone"]
@@ -483,11 +605,16 @@ def evaluate_open_positions(state, summary):
 def fmt_summary(s):
     div = s.get("divergence_pp")
     div_str = f"{div:+.1f}pp" if div is not None else "N/A"
+    oi_str = f"${s['oi_usd']/1e6:.0f}M" if s.get("oi_usd") else "N/A"
+    ls_str = f"{s['ls_retail_long_pct']:.1f}%" if s.get("ls_retail_long_pct") is not None else "N/A"
+    smart_str = f"{s['ls_smart_long_pct']:.1f}%" if s.get("ls_smart_long_pct") is not None else "N/A"
+    taker_str = f"{s['taker_latest']:.2f}" if s.get("taker_latest") is not None else "N/A"
+    taker_avg = f"{s['taker_avg_3h']:.2f}" if s.get("taker_avg_3h") is not None else "N/A"
     return (
         f"💰 *{s['symbol']}*: `${s['price']:.2f}` ({s['change_24h']:+.2f}%)\n"
-        f"📊 OI: `${s.get('oi_usd', 0)/1e6:.0f}M` | LS: `{s.get('ls_retail_long_pct', 0):.1f}%`\n"
-        f"🐋 Smart: `{s.get('ls_smart_long_pct', 0):.1f}%` | Div: `{div_str}`\n"
-        f"⚡ Taker: `{s.get('taker_latest', 0):.2f}` (3h `{s.get('taker_avg_3h', 0):.2f}`)"
+        f"📊 OI: `{oi_str}` | LS: `{ls_str}`\n"
+        f"🐋 Smart: `{smart_str}` | Div: `{div_str}`\n"
+        f"⚡ Taker: `{taker_str}` (3h `{taker_avg}`)"
     )
 
 def alert_trigger(pos, reason, summary):
