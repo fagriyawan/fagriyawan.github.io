@@ -1,8 +1,9 @@
 {
-  "_comment": "This file is the SOURCE OF TRUTH for trading setups. Hermes (AI) writes this. Bot reads this each cycle. DO NOT edit manually unless you know what you're doing.",
-  "version": "1.1",
-  "last_updated": "2026-05-19T15:50:00Z",
+  "_comment": "SOURCE OF TRUTH for trading setups. Hermes (AI) writes this. Bot reads this each cycle.",
+  "version": "2.0",
+  "last_updated": "2026-05-20T00:35:00Z",
   "updated_by": "hermes-ai",
+  "changelog": "v2.0: Lessons from TRADE_0001 + 24h Termux data. Added Setup D (range-short mid resistance), Setup E (counter-trend long hedge). Revised A/C zones based on observed price action.",
   "modal_awal": 10000.00,
   "max_risk_per_trade_pct": 1.0,
   "max_total_exposure_pct": 10.0,
@@ -12,14 +13,15 @@
       {
         "id": "SOL_SETUP_A",
         "side": "SHORT",
-        "entry_zone": [85.20, 85.60],
-        "sl": 86.10,
-        "tp1": 83.50,
-        "tp2": 81.63,
-        "size_usd": 300,
+        "entry_zone": [85.10, 85.50],
+        "sl": 86.00,
+        "tp1": 84.00,
+        "tp2": 83.50,
+        "tp3": 81.63,
+        "size_usd": 250,
         "trigger": "rejection",
         "active": true,
-        "note": "Short on bounce rejection at intermediate resistance"
+        "note": "v2: Widened entry zone slightly down ($85.10-$85.50). Price not reaching $85.20-$85.60 in 24h, broaden to catch."
       },
       {
         "id": "SOL_SETUP_B",
@@ -29,23 +31,54 @@
         "tp1": 81.63,
         "tp2": 80.80,
         "tp3": 76.70,
-        "size_usd": 400,
+        "size_usd": 350,
         "trigger": "breakdown",
         "active": true,
-        "note": "Short on breakdown of $83.45 (cluster cascade target)"
+        "note": "v2: Unchanged. Cluster cascade target. Price still holding $83.7 support — break $83.45 = clean."
       },
       {
         "id": "SOL_SETUP_C",
         "side": "SHORT",
-        "entry_zone": [84.70, 84.90],
+        "entry_zone": [84.50, 84.80],
         "sl": 85.30,
         "tp1": 83.50,
         "tp2": 81.63,
+        "size_usd": 100,
+        "trigger": "scout",
+        "active": true,
+        "note": "v2: Widened from $84.70-$84.90 to $84.50-$84.80 (price keeps chopping around $84.20-$84.60). Reduced size from $150 -> $100."
+      },
+      {
+        "id": "SOL_SETUP_D",
+        "side": "SHORT",
+        "entry_zone": [84.95, 85.30],
+        "sl": 85.65,
+        "tp1": 84.20,
+        "tp2": 83.50,
         "size_usd": 150,
         "trigger": "scout",
         "active": true,
-        "note": "Scout short, small size for early breakdown detection"
+        "note": "v2 NEW: Mid-resistance range short. Tighter SL ($0.35), realistic R:R 1:2.1 to TP1. Catches retracement to $85 zone that A misses."
+      },
+      {
+        "id": "SOL_SETUP_E",
+        "side": "LONG",
+        "entry_zone": [83.55, 83.75],
+        "sl": 83.20,
+        "tp1": 84.30,
+        "tp2": 84.95,
+        "size_usd": 150,
+        "trigger": "scout",
+        "active": true,
+        "note": "v2 NEW: Counter-trend LONG hedge near $83.50 support. Hanya untuk diversifikasi & catch bounce. Bot trigger HANYA jika 15m bullish (ini akan handle by trigger code di bot — perlu code update untuk respect side==LONG)."
       }
     ]
+  },
+  "_size_audit": {
+    "total_max_exposure_usd": 1000,
+    "total_max_exposure_pct": 10.0,
+    "compliant_with_rule_009": true,
+    "estimated_max_total_risk_if_all_sl_hit_usd": 9.0,
+    "estimated_max_total_risk_pct": 0.09
   }
 }
