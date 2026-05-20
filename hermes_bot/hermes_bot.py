@@ -64,8 +64,10 @@ GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
 GITHUB_REPO  = os.environ.get("GITHUB_REPO", "fagriyawan/fagriyawan.github.io")
 GITHUB_BRANCH= os.environ.get("GITHUB_BRANCH", "hermes-trading-bot")
 
-POLL_INTERVAL_SEC     = int(os.environ.get("POLL_INTERVAL_SEC", "600"))   # 10 min
+POLL_INTERVAL_SEC     = int(os.environ.get("POLL_INTERVAL_SEC", "180"))   # 3 min default
 DAILY_REPORT_HOUR_UTC = int(os.environ.get("DAILY_REPORT_HOUR_UTC", "0"))
+SNAPSHOT_KEEP_LAST    = int(os.environ.get("SNAPSHOT_KEEP_LAST", "240"))   # ~12h at 3min
+HEARTBEAT_GIT_PUSH_MIN = int(os.environ.get("HEARTBEAT_GIT_PUSH_MIN", "30"))  # push state every 30min
 
 BOT_DIR    = Path(__file__).parent.resolve()
 REPO_ROOT  = BOT_DIR.parent
@@ -885,17 +887,32 @@ def run_cycle():
     if utcnow().hour == DAILY_REPORT_HOUR_UTC and state.get("last_daily_report_date") != today:
         daily_report(state, summaries)
 
-    # 7. Push bot-owned files to git (state, history, snapshots, lessons)
+    # 7. Cleanup old snapshots (keep last N files)
+    try:
+        all_snaps = sorted(SNAP_DIR.glob("*.json"), key=lambda p: p.stat().st_mtime)
+        if len(all_snaps) > SNAPSHOT_KEEP_LAST:
+            for old in all_snaps[:-SNAPSHOT_KEEP_LAST]:
+                old.unlink()
+    except Exception as e:
+        log(f"snapshot cleanup FAIL: {e}")
+
+    # 8. Push bot-owned files to git (throttled — not every cycle to avoid commit spam)
     bot_files = [STATE_FILE, HISTORY_FILE, LESSONS_FILE]
     bot_files = [f for f in bot_files if f.exists()]
-    new_snaps = list(SNAP_DIR.glob(f"*_{utcnow().strftime('%Y%m%d_%H')}*.json"))
-    bot_files.extend(new_snaps)
     if closed_any or opened_any:
-        commit_msg = f"[bot] cycle {utcnow().strftime('%Y-%m-%d %H:%M')} - {('opened' if opened_any else '')+('+closed' if closed_any else '')}"
+        # Always push immediately on trade events
+        commit_msg = f"[bot] {utcnow().strftime('%Y-%m-%d %H:%M')} - {('opened' if opened_any else '')+('+closed' if closed_any else '')}"
         git_push_files(bot_files, commit_msg)
-    elif utcnow().minute < (POLL_INTERVAL_SEC // 60) + 1 and utcnow().hour % 6 == 0:
-        # Push state every 6h even if quiet, to keep history visible
-        git_push_files(bot_files, f"[bot] heartbeat {utcnow().strftime('%Y-%m-%d %H:%M')}")
+        state["last_git_push_minute"] = int(utcnow().timestamp() // 60)
+        save_state(state)
+    else:
+        # Heartbeat push every HEARTBEAT_GIT_PUSH_MIN minutes
+        last_push_min = state.get("last_git_push_minute", 0)
+        now_min = int(utcnow().timestamp() // 60)
+        if now_min - last_push_min >= HEARTBEAT_GIT_PUSH_MIN:
+            if git_push_files(bot_files, f"[bot] heartbeat {utcnow().strftime('%Y-%m-%d %H:%M')}"):
+                state["last_git_push_minute"] = now_min
+                save_state(state)
 
 
 def startup():
