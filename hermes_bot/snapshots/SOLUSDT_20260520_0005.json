@@ -1,0 +1,20 @@
+{
+  "symbol": "SOLUSDT",
+  "price": 84.34,
+  "change_24h": -1.19,
+  "high_24h": 85.96,
+  "low_24h": 83.7,
+  "vol_quote_usd": 61189496.43428,
+  "oi_usd": 600471388.8,
+  "oi_units": 7121340.0,
+  "oi_change_24h_pct": -1.5968163163785676,
+  "ls_retail_long_pct": 72.000546597431,
+  "ls_smart_long_pct": 40.33325379319175,
+  "divergence_pp": 31.667292804239246,
+  "taker_latest": 0.7847055064437107,
+  "taker_avg_3h": 0.8047866888741976,
+  "k15m_open": 84.26,
+  "k15m_high": 84.36,
+  "k15m_low": 84.19,
+  "k15m_close": 84.33
+}
