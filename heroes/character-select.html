@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Character Select - Auto Battler</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #1a1a2e;
+            color: #eee;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+            height: 100vh;
+        }
+        #header {
+            text-align: center;
+            padding: 12px;
+            background: linear-gradient(135deg, #16213e, #0f3460);
+            border-bottom: 2px solid #e94560;
+        }
+        #header h1 {
+            font-size: 1.4rem;
+            color: #e94560;
+            text-shadow: 0 0 10px rgba(233,69,96,0.5);
+        }
+        #main { display: flex; height: calc(100vh - 56px); }
+        #sidebar {
+            width: 200px;
+            background: #16213e;
+            padding: 10px;
+            overflow-y: auto;
+            border-right: 1px solid #0f3460;
+        }
+        .char-btn {
+            display: block; width: 100%;
+            padding: 10px 12px; margin-bottom: 6px;
+            background: #0f3460; color: #eee;
+            border: 1px solid #1a1a2e;
+            border-radius: 6px; cursor: pointer;
+            font-size: 0.85rem; transition: all 0.2s;
+            text-align: left;
+        }
+        .char-btn:hover { background: #1a4080; border-color: #e94560; }
+        .char-btn.active { background: #e94560; color: #fff; }
+        .char-btn .char-name { font-weight: bold; }
+        .char-btn .char-info { font-size: 0.7rem; opacity: 0.7; margin-top: 2px; }
+        #canvas-area {
+            flex: 1; position: relative;
+            display: flex; align-items: center; justify-content: center;
+        }
+        #controls {
+            position: absolute; bottom: 15px; left: 50%;
+            transform: translateX(-50%);
+            display: flex; gap: 8px; flex-wrap: wrap;
+            justify-content: center; max-width: 90%;
+        }
+        .anim-btn {
+            padding: 6px 14px; background: #0f3460;
+            color: #eee; border: 1px solid #e94560;
+            border-radius: 4px; cursor: pointer;
+            font-size: 0.75rem; transition: all 0.2s;
+        }
+        .anim-btn:hover, .anim-btn.active { background: #e94560; color: #fff; }
+</style>
+</head>
+<body>
+    <div id="header"><h1>CHARACTER SELECT</h1></div>
+    <div id="main">
+        <div id="sidebar" id="sidebar"></div>
+        <div id="canvas-area">
+            <div id="status" style="text-align:center;color:#888;">Select a character</div>
+            <div id="controls"></div>
+        </div>
+    </div>
+    <script src="pixi.min.js"></script>
+    <script src="pixi-spine.js"></script>
+    <script src="spine36-skel2json.js"></script>
+    <script>
+
+(function() {
+'use strict';
+
+const CHARACTERS = [
+    { id:'char001', name:'Cream Arcade', info:'Spine 3.6 JSON',
+      dataFile:'assets/char001/cream_arcade_000.json',
+      atlasFile:'assets/char001/cream_arcade_000.atlas', format:'json36' },
+    { id:'char002', name:'H30056', info:'Spine 3.8 Binary',
+      dataFile:'assets/char002/H30056.skel',
+      atlasFile:'assets/char002/H30056.atlas', format:'skel38' },
+    { id:'char003', name:'L05001', info:'Spine 3.6 Binary',
+      dataFile:'assets/char003/L05001.skel',
+      atlasFile:'assets/char003/L05001.atlas', format:'skel36' },
+    { id:'char004', name:'H30103', info:'Spine 3.8 Binary',
+      dataFile:'assets/char004/H30103.skel',
+      atlasFile:'assets/char004/H30103.atlas', format:'skel38' },
+    { id:'char005', name:'Crew 110016', info:'Spine 3.6 Binary',
+      dataFile:'assets/char005/crew110016.skel',
+      atlasFile:'assets/char005/crew110016.atlas', format:'skel36' },
+    { id:'char006', name:'Crew 110026', info:'Spine 3.6 Binary',
+      dataFile:'assets/char006/crew110026.skel',
+      atlasFile:'assets/char006/crew110026.atlas', format:'skel36' },
+    { id:'char007', name:'Crew 130004', info:'Spine 3.6 Binary',
+      dataFile:'assets/char007/crew130004.skel',
+      atlasFile:'assets/char007/crew130004.atlas', format:'skel36' }
+];
+
+let app = null;
+let currentSpine = null;
+let spineDataCache = {};
+
+const sidebar = document.getElementById('sidebar');
+const canvasArea = document.getElementById('canvas-area');
+const statusEl = document.getElementById('status');
+const controlsEl = document.getElementById('controls');
+
+function initApp() {
+    const w = canvasArea.clientWidth;
+    const h = canvasArea.clientHeight;
+    app = new PIXI.Application({
+        width: w, height: h,
+        backgroundColor: 0x1a1a2e,
+        antialias: true,
+        resolution: window.devicePixelRatio || 1,
+        autoDensity: true
+    });
+    canvasArea.insertBefore(app.view, canvasArea.firstChild);
+    window.addEventListener('resize', () => {
+        app.renderer.resize(canvasArea.clientWidth, canvasArea.clientHeight);
+        if (currentSpine) positionSpine(currentSpine);
+    });
+}
+
+function buildSidebar() {
+    CHARACTERS.forEach((ch, idx) => {
+        const btn = document.createElement('button');
+        btn.className = 'char-btn';
+        btn.innerHTML = '<div class="char-name">'+ch.name+'</div><div class="char-info">'+ch.info+'</div>';
+        btn.onclick = () => selectCharacter(idx);
+        sidebar.appendChild(btn);
+    });
+}
+
+
+async function selectCharacter(idx) {
+    sidebar.querySelectorAll('.char-btn').forEach((b,i) => b.classList.toggle('active', i===idx));
+    const ch = CHARACTERS[idx];
+    statusEl.style.display = 'block';
+    statusEl.textContent = 'Loading ' + ch.name + '...';
+    controlsEl.innerHTML = '';
+    if (currentSpine) { app.stage.removeChild(currentSpine); currentSpine = null; }
+
+    try {
+        let spineData = spineDataCache[ch.id];
+        if (!spineData) {
+            spineData = await loadCharacter(ch);
+            spineDataCache[ch.id] = spineData;
+        }
+        displaySpine(spineData);
+        statusEl.style.display = 'none';
+    } catch(e) {
+        statusEl.textContent = 'Error: ' + e.message;
+        statusEl.style.color = '#e94560';
+        console.error('Load error for', ch.name, e);
+    }
+}
+
+async function loadCharacter(ch) {
+    // 1. Fetch and clean atlas text
+    const atlasResp = await fetch(ch.atlasFile);
+    if (!atlasResp.ok) throw new Error('Atlas fetch failed');
+    let atlasText = await atlasResp.text();
+    // Trim trailing spaces on each line (some atlases have them)
+    atlasText = atlasText.split('\n').map(l => l.trimEnd()).join('\n');
+
+    // 2. Get skeleton JSON data
+    let jsonData;
+    if (ch.format === 'json36') {
+        const resp = await fetch(ch.dataFile);
+        if (!resp.ok) throw new Error('JSON fetch failed');
+        jsonData = await resp.json();
+    } else if (ch.format === 'skel36') {
+        // Convert binary to JSON using our converter
+        const resp = await fetch(ch.dataFile);
+        if (!resp.ok) throw new Error('Skel fetch failed');
+        const buf = await resp.arrayBuffer();
+        jsonData = spine36SkelToJson(buf);
+    } else if (ch.format === 'skel38') {
+        // For 3.8 binary, use pixi-spine's built-in binary parser
+        const resp = await fetch(ch.dataFile);
+        if (!resp.ok) throw new Error('Skel fetch failed');
+        const buf = await resp.arrayBuffer();
+        const rawData = new Uint8Array(buf);
+        // Parse atlas, then use binary parser
+        const atlas = await parseAtlas(atlasText, ch);
+        const parser = new PIXI.spine.SpineParser();
+        const binaryParser = parser.createBinaryParser();
+        binaryParser.scale = 1;
+        return binaryParser.readSkeletonData(atlas, rawData);
+    }
+
+    // For JSON-based data (json36 and skel36 converted to json):
+    // Parse atlas, then use JSON parser
+    const atlas = await parseAtlas(atlasText, ch);
+    const parser = new PIXI.spine.SpineParser();
+    const jsonParser = parser.createJsonParser();
+    jsonParser.scale = 1;
+    return jsonParser.readSkeletonData(atlas, jsonData);
+}
+
+
+function parseAtlas(atlasText, ch) {
+    return new Promise((resolve, reject) => {
+        const basePath = ch.atlasFile.substring(0, ch.atlasFile.lastIndexOf('/') + 1);
+        let pendingPages = 0;
+        let resolved = false;
+
+        new PIXI.spine.TextureAtlas(atlasText, (pageName, callback) => {
+            pendingPages++;
+            const imgUrl = basePath + pageName;
+            const tex = PIXI.BaseTexture.from(imgUrl, { scaleMode: PIXI.SCALE_MODES.LINEAR });
+            if (tex.valid) {
+                callback(tex);
+                pendingPages--;
+            } else {
+                tex.once('loaded', () => { callback(tex); pendingPages--; });
+                tex.once('error', () => reject(new Error('Texture failed: ' + pageName)));
+            }
+        }, (atlas) => {
+            resolved = true;
+            resolve(atlas);
+        });
+    });
+}
+
+function displaySpine(spineData) {
+    const spineObj = new PIXI.spine.Spine(spineData);
+    currentSpine = spineObj;
+    positionSpine(spineObj);
+    app.stage.addChild(spineObj);
+
+    // Get animation names
+    const anims = spineData.animations.map(a => a.name);
+    // Play default animation
+    let defaultAnim = anims.find(a => /idle|wait|stand/i.test(a)) || anims[0];
+    if (defaultAnim) playAnim(spineObj, defaultAnim);
+    buildAnimButtons(spineObj, anims, defaultAnim);
+}
+
+function positionSpine(spineObj) {
+    const cw = app.renderer.width / (window.devicePixelRatio || 1);
+    const ch = app.renderer.height / (window.devicePixelRatio || 1);
+    const bounds = spineObj.getLocalBounds();
+    const bw = bounds.width || 200;
+    const bh = bounds.height || 200;
+    const scale = Math.min((cw * 0.6) / bw, (ch * 0.65) / bh, 1.5);
+    spineObj.scale.set(scale);
+    spineObj.x = cw / 2;
+    spineObj.y = ch / 2 + (bh * scale) * 0.25;
+}
+
+function playAnim(spineObj, animName) {
+    try {
+        spineObj.state.setAnimation(0, animName, true);
+    } catch(e) { console.warn('Anim error:', animName, e.message); }
+    controlsEl.querySelectorAll('.anim-btn').forEach(b =>
+        b.classList.toggle('active', b.textContent === animName));
+}
+
+function buildAnimButtons(spineObj, anims, current) {
+    controlsEl.innerHTML = '';
+    anims.forEach(name => {
+        const btn = document.createElement('button');
+        btn.className = 'anim-btn' + (name === current ? ' active' : '');
+        btn.textContent = name;
+        btn.onclick = () => playAnim(spineObj, name);
+        controlsEl.appendChild(btn);
+    });
+}
+
+// Boot
+initApp();
+buildSidebar();
+
+})();
+    </script>
+</body>
+</html>
