@@ -6,21 +6,22 @@
     <title>Auto Battle - Heroes</title>
     <style>
         * { margin:0; padding:0; box-sizing:border-box; }
-        body { background:#0f0f1a; color:#eee; font-family:'Segoe UI',sans-serif; overflow:hidden; height:100vh; }
-        #hud { display:flex; justify-content:space-between; align-items:center; padding:8px 16px; background:linear-gradient(90deg,#1a1a2e,#16213e); border-bottom:2px solid #e94560; }
-        #hud h2 { font-size:1rem; color:#e94560; }
-        #hud .info { font-size:0.8rem; color:#aaa; }
-        .speed-btn { padding:4px 10px; margin-left:6px; background:#0f3460; color:#eee; border:1px solid #e94560; border-radius:4px; cursor:pointer; font-size:0.75rem; }
+        body { background:#0a0a14; color:#eee; font-family:'Segoe UI',sans-serif; overflow:hidden; height:100vh; }
+        #hud { display:flex; justify-content:space-between; align-items:center; padding:6px 12px; background:linear-gradient(90deg,#1a1a2e,#16213e); border-bottom:2px solid #e94560; }
+        #stageTitle { font-size:0.9rem; color:#e94560; font-weight:bold; }
+        #hudInfo { font-size:0.75rem; color:#ccc; }
+        .speed-controls { display:flex; gap:4px; }
+        .speed-btn { padding:3px 10px; background:#0f3460; color:#eee; border:1px solid #e94560; border-radius:4px; cursor:pointer; font-size:0.7rem; }
         .speed-btn.active { background:#e94560; color:#fff; }
-        #canvas-wrap { width:100%; height:calc(100vh - 42px); position:relative; }
-        #overlay { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.85); z-index:10; flex-direction:column; gap:16px; }
-        #overlay h1 { font-size:2rem; color:#e94560; }
-        #overlay p { color:#aaa; font-size:0.9rem; text-align:center; max-width:400px; }
-        #overlay button { padding:12px 32px; background:#e94560; color:#fff; border:none; border-radius:8px; font-size:1.1rem; cursor:pointer; font-weight:bold; }
+        #canvas-wrap { width:100%; height:calc(100vh - 38px); position:relative; }
+        #overlay { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.88); z-index:10; flex-direction:column; gap:16px; }
+        #overlay h1 { font-size:1.8rem; color:#e94560; }
+        #overlay p { color:#aaa; font-size:0.85rem; text-align:center; max-width:360px; }
+        #overlay button { padding:10px 28px; background:#e94560; color:#fff; border:none; border-radius:8px; font-size:1rem; cursor:pointer; font-weight:bold; }
         #overlay button:hover { background:#ff6b8a; }
         #overlay.hidden { display:none; }
-        #log { position:absolute; top:8px; right:8px; width:200px; max-height:250px; overflow-y:auto; background:rgba(15,15,30,0.85); border:1px solid #333; border-radius:6px; padding:6px; font-size:0.6rem; z-index:5; pointer-events:none; }
-        #log div { margin-bottom:2px; }
+        #log { position:absolute; top:6px; right:6px; width:220px; max-height:45vh; overflow-y:auto; background:rgba(10,10,20,0.88); border:1px solid #2a2a4a; border-radius:6px; padding:6px; font-size:0.6rem; z-index:5; pointer-events:none; }
+        #log div { margin-bottom:2px; line-height:1.3; }
         .ldmg { color:#ff6b6b; }
         .lkill { color:#ffd700; }
         .lstage { color:#4ecdc4; font-weight:bold; }
@@ -28,9 +29,9 @@
 </head>
 <body>
 <div id="hud">
-    <h2 id="stageTitle">Stage 1 / 5</h2>
-    <div class="info" id="hudInfo">Preparing...</div>
-    <div>
+    <span id="stageTitle">Stage 1 / 5</span>
+    <span id="hudInfo">Heroes: 3 | Enemies: 1</span>
+    <div class="speed-controls">
         <button class="speed-btn active" data-speed="1">1x</button>
         <button class="speed-btn" data-speed="2">2x</button>
         <button class="speed-btn" data-speed="3">3x</button>
@@ -90,7 +91,7 @@ function initPixi() {
     app = new PIXI.Application({
         width: wrap.clientWidth,
         height: wrap.clientHeight,
-        backgroundColor: 0x0f0f1a,
+        backgroundColor: 0x0a0a14,
         antialias: true,
         resolution: window.devicePixelRatio || 1,
         autoDensity: true
@@ -223,7 +224,14 @@ function createUnit(charIdx, side, x, y) {
 
     const spine = new PIXI.spine.Spine(spineData);
     const scale = 0.12;
-    spine.scale.set(side === 'enemy' ? -scale : scale, scale);
+    // Most of these Spine characters face LEFT by default.
+    // Heroes (left side): flip to face RIGHT (toward enemies) -> negative scaleX
+    // Enemies (right side): keep default LEFT facing (toward heroes) -> positive scaleX
+    if (side === 'hero') {
+        spine.scale.set(-scale, scale);
+    } else {
+        spine.scale.set(scale, scale);
+    }
     spine.x = x;
     spine.y = y;
     app.stage.addChild(spine);
@@ -264,17 +272,17 @@ function createUnit(charIdx, side, x, y) {
 }
 
 function drawHp(u) {
-    const bw = 44, bh = 5;
-    const bx = u.x - bw/2, by = u.y - 75;
+    const bw = 50, bh = 6;
+    const bx = u.x - bw/2, by = u.y - 80;
     u.hpBg.clear();
     u.hpFill.clear();
     if (!u.alive && u.dyingTimer <= 0) { u.label.visible = false; return; }
-    u.hpBg.beginFill(0x222222).drawRoundedRect(bx, by, bw, bh, 2).endFill();
+    u.hpBg.beginFill(0x1a1a1a).drawRoundedRect(bx-1, by-1, bw+2, bh+2, 3).endFill();
     const ratio = Math.max(0, u.hp / u.maxHp);
-    const color = ratio > 0.5 ? 0x44dd44 : ratio > 0.25 ? 0xddaa00 : 0xdd3333;
-    u.hpFill.beginFill(color).drawRoundedRect(bx+1, by+1, (bw-2)*ratio, bh-2, 1).endFill();
+    const color = u.side === 'hero' ? 0x44cc44 : 0xcc3333;
+    u.hpFill.beginFill(color).drawRoundedRect(bx, by, bw*ratio, bh, 2).endFill();
     u.label.x = u.x;
-    u.label.y = by - 2;
+    u.label.y = by - 3;
 }
 
 // ============ SET ANIM STATE ============
