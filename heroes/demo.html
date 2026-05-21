@@ -75,13 +75,26 @@
         .then(rawAtlasText => {
           statusEl.textContent = "Loading skeleton...";
 
-          // Fix atlas format: remove "pma:true" line that Spine 3.6 doesn't understand
-          // Spine 3.6 expects: name, size, format, filter, repeat
-          // Newer exports add "pma:true" which breaks the parser
-          const atlasText = rawAtlasText
-            .split('\n')
-            .filter(line => !line.trim().startsWith('pma:'))
-            .join('\n');
+          // Fix atlas format for Spine 3.6 compatibility
+          // Spine 3.6 parser expects EXACTLY this order after texture filename:
+          //   size: W,H
+          //   format: RGBA8888
+          //   filter: Linear,Linear
+          //   repeat: none
+          // Newer Spine exports add "pma:true" which shifts the parser
+          // and causes "Unknown texture filter 512" error.
+          // Also remove leading blank lines.
+          const lines = rawAtlasText.split('\n');
+          const fixedLines = [];
+          for (let i = 0; i < lines.length; i++) {
+            const trimmed = lines[i].trim();
+            // Skip pma lines
+            if (trimmed.startsWith('pma:')) continue;
+            // Skip empty lines at the very start
+            if (fixedLines.length === 0 && trimmed === '') continue;
+            fixedLines.push(lines[i]);
+          }
+          const atlasText = fixedLines.join('\n');
 
           // Create spine texture from image
           const spineImg = new spine.canvas.CanvasTexture(img);
