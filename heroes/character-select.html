@@ -236,8 +236,13 @@ function parseAtlas(atlasText, ch) {
 function displaySpine(spineData) {
     const spineObj = new PIXI.spine.Spine(spineData);
     currentSpine = spineObj;
-    positionSpine(spineObj);
+
+    // Ensure skeleton world transform is computed before positioning
+    spineObj.skeleton.updateWorldTransform();
+    spineObj.update(0);
+
     app.stage.addChild(spineObj);
+    positionSpine(spineObj);
 
     // Get animation names
     const anims = spineData.animations.map(a => a.name);
@@ -250,9 +255,20 @@ function displaySpine(spineData) {
 function positionSpine(spineObj) {
     const cw = app.renderer.width / (window.devicePixelRatio || 1);
     const ch = app.renderer.height / (window.devicePixelRatio || 1);
-    const bounds = spineObj.getLocalBounds();
-    const bw = bounds.width || 200;
-    const bh = bounds.height || 200;
+
+    // Try to get bounds, fallback to manual sizing if skeleton not ready
+    let bw = 300, bh = 500;
+    try {
+        spineObj.skeleton.updateWorldTransform();
+        const bounds = spineObj.getLocalBounds();
+        if (bounds.width > 0 && bounds.height > 0 && isFinite(bounds.width)) {
+            bw = bounds.width;
+            bh = bounds.height;
+        }
+    } catch(e) {
+        console.warn('getBounds failed, using defaults:', e.message);
+    }
+
     const scale = Math.min((cw * 0.6) / bw, (ch * 0.65) / bh, 1.5);
     spineObj.scale.set(scale);
     spineObj.x = cw / 2;

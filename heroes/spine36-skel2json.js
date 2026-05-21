@@ -107,21 +107,22 @@ function readVertices(reader, vertexCount) {
     const isWeighted = reader.readBoolean();
     const verticesLength = vertexCount << 1;
     if (!isWeighted) {
-        return { vertices: reader.readFloatArray(verticesLength, 1), bones: null };
+        return { vertices: reader.readFloatArray(verticesLength, 1), isWeighted: false };
     }
-    const weights = [];
-    const bones = [];
+    // For weighted vertices, combine bones+weights into single array
+    // Format: [boneCount, boneIndex, x, y, weight, boneIndex, x, y, weight, ...]
+    const combined = [];
     for (let i = 0; i < vertexCount; i++) {
         const boneCount = reader.readVarint(true);
-        bones.push(boneCount);
+        combined.push(boneCount);
         for (let ii = 0; ii < boneCount; ii++) {
-            bones.push(reader.readVarint(true));
-            weights.push(reader.readFloat());
-            weights.push(reader.readFloat());
-            weights.push(reader.readFloat());
+            combined.push(reader.readVarint(true));
+            combined.push(reader.readFloat());
+            combined.push(reader.readFloat());
+            combined.push(reader.readFloat());
         }
     }
-    return { vertices: weights, bones: bones };
+    return { vertices: combined, isWeighted: true };
 }
 
 function readCurve(reader) {
@@ -157,7 +158,6 @@ function readAttachment(reader, skinName, slotIndex, attachmentName, nonessentia
         const v = readVertices(reader, vertexCount);
         if (nonessential) reader.readInt();
         const result = { name, type: 'boundingbox', vertexCount, vertices: v.vertices };
-        if (v.bones) result.bones = v.bones;
         return result;
     }
     case 2: { // Mesh
@@ -175,7 +175,6 @@ function readAttachment(reader, skinName, slotIndex, attachmentName, nonessentia
             height = reader.readFloat();
         }
         const result = { name, type: 'mesh', path, color, uvs, triangles, vertices: v.vertices, hull };
-        if (v.bones) result.bones = v.bones;
         if (edges) result.edges = edges;
         if (nonessential) { result.width = width; result.height = height; }
         return result;
@@ -201,7 +200,6 @@ function readAttachment(reader, skinName, slotIndex, attachmentName, nonessentia
         for (let i = 0, n = vertexCount / 3; i < n; i++) lengths.push(reader.readFloat());
         if (nonessential) reader.readInt();
         const result = { name, type: 'path', closed, constantSpeed, vertexCount, vertices: v.vertices, lengths };
-        if (v.bones) result.bones = v.bones;
         return result;
     }
     case 5: { // Point
@@ -217,7 +215,6 @@ function readAttachment(reader, skinName, slotIndex, attachmentName, nonessentia
         const v = readVertices(reader, vertexCount);
         if (nonessential) reader.readInt();
         const result = { name, type: 'clipping', end: skeletonData.slots[endSlotIndex].name, vertexCount, vertices: v.vertices };
-        if (v.bones) result.bones = v.bones;
         return result;
     }
     }
