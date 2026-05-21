@@ -75,26 +75,57 @@
         .then(rawAtlasText => {
           statusEl.textContent = "Loading skeleton...";
 
-          // Fix atlas format for Spine 3.6 compatibility
-          // Spine 3.6 parser expects EXACTLY this order after texture filename:
+          // Fix atlas for Spine 3.6 compatibility.
+          // The atlas from newer Spine versions has extra fields like "pma:true"
+          // that the 3.6 parser doesn't understand. The 3.6 parser reads the page
+          // header by line position, so we must reconstruct it exactly:
+          //   \n
+          //   textureName.png
           //   size: W,H
           //   format: RGBA8888
           //   filter: Linear,Linear
           //   repeat: none
-          // Newer Spine exports add "pma:true" which shifts the parser
-          // and causes "Unknown texture filter 512" error.
-          // Also remove leading blank lines.
+          // Then region entries follow.
           const lines = rawAtlasText.split('\n');
           const fixedLines = [];
+          let inHeader = false;
+          let headerDone = false;
+
           for (let i = 0; i < lines.length; i++) {
             const trimmed = lines[i].trim();
-            // Skip pma lines
-            if (trimmed.startsWith('pma:')) continue;
-            // Skip empty lines at the very start
+
+            // Skip completely empty lines at start
             if (fixedLines.length === 0 && trimmed === '') continue;
+
+            // Detect texture filename line (ends with .png/.jpg and no colon before it)
+            if (!headerDone && (trimmed.endsWith('.png') || trimmed.endsWith('.jpg'))) {
+              // Start of a page - add blank line separator then filename
+              if (fixedLines.length > 0) fixedLines.push('');
+              fixedLines.push(trimmed);
+              inHeader = true;
+              continue;
+            }
+
+            // In header section, only keep known fields
+            if (inHeader) {
+              if (trimmed.startsWith('size:') || trimmed.startsWith('format:') ||
+                  trimmed.startsWith('filter:') || trimmed.startsWith('repeat:')) {
+                fixedLines.push(trimmed);
+                if (trimmed.startsWith('repeat:')) {
+                  inHeader = false;
+                  headerDone = true;
+                }
+              }
+              // Skip unknown header fields like pma:true
+              continue;
+            }
+
+            // Region data - pass through as-is
             fixedLines.push(lines[i]);
           }
+
           const atlasText = fixedLines.join('\n');
+          console.log("Fixed atlas (first 300 chars):", atlasText.substring(0, 300));
 
           // Create spine texture from image
           const spineImg = new spine.canvas.CanvasTexture(img);
