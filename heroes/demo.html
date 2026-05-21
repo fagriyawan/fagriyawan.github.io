@@ -128,6 +128,7 @@
           console.log("Fixed atlas (first 300 chars):", atlasText.substring(0, 300));
 
           // Create spine texture from image
+          // Set premultipliedAlpha since the atlas has pma:true
           const spineImg = new spine.canvas.CanvasTexture(img);
 
           // Parse atlas
@@ -147,8 +148,12 @@
 
               // Create skeleton
               skeleton = new spine.Skeleton(skeletonData);
+              skeleton.setSkinByName("default");
               skeleton.setSlotsToSetupPose();
               skeleton.updateWorldTransform();
+
+              // Set premultiplied alpha on skeleton
+              skeleton.color.a = 1;
 
               // Animation state
               animStateData = new spine.AnimationStateData(skeletonData);
@@ -227,6 +232,7 @@
       // Render
       const renderer = new spine.canvas.SkeletonRenderer(ctx);
       renderer.debugRendering = false;
+      renderer.triangleRendering = true;
       renderer.draw(skeleton);
 
       ctx.restore();
