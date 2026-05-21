@@ -172,11 +172,6 @@ function findAnim(anims, type) {
 // ============ CREATE UNIT ============
 const TARGET_HEIGHT = 90; // normalize all chars to this pixel height
 
-// Characters that face RIGHT by default (need flip for enemy side)
-// char002 (H30056) and char004 (H30103) are skel38 and face RIGHT
-// char001, char003, char005-007 face LEFT by default
-const FACES_RIGHT = { char002: true, char004: true };
-
 function createUnit(charIdx, side, x, y) {
     const def = CHARS[charIdx];
     const spineData = spineCache[def.id];
@@ -193,17 +188,14 @@ function createUnit(charIdx, side, x, y) {
     } catch(e) {}
     const scale = TARGET_HEIGHT / bh;
 
-    // Determine facing: we want heroes to face RIGHT, enemies to face LEFT
-    const defaultFacesRight = !!FACES_RIGHT[def.id];
-    let flipX = false;
-    if (side === 'hero') {
-        // Hero must face RIGHT
-        if (!defaultFacesRight) flipX = true; // default LEFT, flip to RIGHT
+    // All characters face RIGHT by default.
+    // Heroes (left side): keep default RIGHT facing (toward enemies) = positive scaleX
+    // Enemies (right side): flip to face LEFT (toward heroes) = negative scaleX
+    if (side === 'enemy') {
+        spine.scale.set(-scale, scale);
     } else {
-        // Enemy must face LEFT
-        if (defaultFacesRight) flipX = true; // default RIGHT, flip to LEFT
+        spine.scale.set(scale, scale);
     }
-    spine.scale.set(flipX ? -scale : scale, scale);
     spine.x = x;
     spine.y = y;
     app.stage.addChild(spine);
