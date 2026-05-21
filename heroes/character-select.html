@@ -39,13 +39,13 @@
   <script src="pixi-spine.js"></script>
   <script>
     const CHARACTERS = [
-      { id: "char001", name: "Mage", icon: "🔮", skeleton: "assets/char001/cream_arcade_000.json", scale: 0.25, ver: "3.6" },
-      { id: "char002", name: "Sword", icon: "⚔️", skeleton: "assets/char002/H30056.skel", scale: 0.2, ver: "3.8" },
-      { id: "char003", name: "Warrior", icon: "🛡️", skeleton: "assets/char003/L05001.skel", scale: 0.25, ver: "3.6" },
-      { id: "char004", name: "Heavy", icon: "💥", skeleton: "assets/char004/H30103.skel", scale: 0.15, ver: "3.8" },
-      { id: "char005", name: "Fighter", icon: "👊", skeleton: "assets/char005/crew110016.skel", scale: 0.25, ver: "3.6" },
-      { id: "char006", name: "Archer", icon: "🏹", skeleton: "assets/char006/crew110026.skel", scale: 0.35, ver: "3.6" },
-      { id: "char007", name: "Assassin", icon: "🗡️", skeleton: "assets/char007/crew130004.skel", scale: 0.3, ver: "3.6" },
+      { id: "char001", name: "Mage", icon: "🔮", skeleton: "assets/char001/cream_arcade_000.json", atlas: "assets/char001/cream_arcade_000.atlas", scale: 0.25, ver: "3.6" },
+      { id: "char002", name: "Sword", icon: "⚔️", skeleton: "assets/char002/H30056.skel", atlas: "assets/char002/H30056.atlas", scale: 0.2, ver: "3.8" },
+      { id: "char003", name: "Warrior", icon: "🛡️", skeleton: "assets/char003/L05001.skel", atlas: "assets/char003/L05001.atlas", scale: 0.25, ver: "3.6" },
+      { id: "char004", name: "Heavy", icon: "💥", skeleton: "assets/char004/H30103.skel", atlas: "assets/char004/H30103.atlas", scale: 0.15, ver: "3.8" },
+      { id: "char005", name: "Fighter", icon: "👊", skeleton: "assets/char005/crew110016.skel", atlas: "assets/char005/crew110016.atlas", scale: 0.25, ver: "3.6" },
+      { id: "char006", name: "Archer", icon: "🏹", skeleton: "assets/char006/crew110026.skel", atlas: "assets/char006/crew110026.atlas", scale: 0.35, ver: "3.6" },
+      { id: "char007", name: "Assassin", icon: "🗡️", skeleton: "assets/char007/crew130004.skel", atlas: "assets/char007/crew130004.atlas", scale: 0.3, ver: "3.6" },
     ];
 
     let app, currentSpine = null;
@@ -80,7 +80,7 @@
       if (currentSpine) { app.stage.removeChild(currentSpine); currentSpine.destroy(); currentSpine = null; }
 
       const loader = new PIXI.Loader();
-      loader.add(ch.id, ch.skeleton);
+      loader.add(ch.id, ch.skeleton, { metadata: { spineAtlasFile: ch.atlas } });
       loader.load((_, resources) => {
         const res = resources[ch.id];
         if (!res || !res.spineData) {
