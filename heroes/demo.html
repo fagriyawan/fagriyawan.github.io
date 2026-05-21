@@ -72,8 +72,16 @@
     function loadAtlas(img) {
       fetch(ATLAS_URL)
         .then(r => r.text())
-        .then(atlasText => {
+        .then(rawAtlasText => {
           statusEl.textContent = "Loading skeleton...";
+
+          // Fix atlas format: remove "pma:true" line that Spine 3.6 doesn't understand
+          // Spine 3.6 expects: name, size, format, filter, repeat
+          // Newer exports add "pma:true" which breaks the parser
+          const atlasText = rawAtlasText
+            .split('\n')
+            .filter(line => !line.trim().startsWith('pma:'))
+            .join('\n');
 
           // Create spine texture from image
           const spineImg = new spine.canvas.CanvasTexture(img);
