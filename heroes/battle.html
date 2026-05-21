@@ -70,7 +70,6 @@ const STAGES = [
 // ============ GLOBALS ============
 let app, gameSpeed = 1, currentStage = 0, battleRunning = false;
 let units = [], spineCache = {};
-const SCALE = 0.13;
 const MELEE_RANGE = 70;
 const RANGED_RANGE = 220;
 const MELEE_SPEED = 100;
@@ -166,14 +165,25 @@ function findAnim(anims, type) {
 }
 
 // ============ CREATE UNIT ============
+const TARGET_HEIGHT = 90; // normalize all chars to this pixel height
+
 function createUnit(charIdx, side, x, y) {
     const def = CHARS[charIdx];
     const spineData = spineCache[def.id];
     if (!spineData) return null;
 
     const spine = new PIXI.spine.Spine(spineData);
+    // Normalize: compute bounds then scale to TARGET_HEIGHT
+    spine.skeleton.updateWorldTransform();
+    spine.update(0);
+    let bh = 600;
+    try {
+        const bounds = spine.getLocalBounds();
+        if (bounds.height > 0 && isFinite(bounds.height)) bh = bounds.height;
+    } catch(e) {}
+    const scale = TARGET_HEIGHT / bh;
     // All chars face LEFT by default. Heroes flip to face RIGHT.
-    spine.scale.set(side==='hero' ? -SCALE : SCALE, SCALE);
+    spine.scale.set(side==='hero' ? -scale : scale, scale);
     spine.x = x;
     spine.y = y;
     app.stage.addChild(spine);
