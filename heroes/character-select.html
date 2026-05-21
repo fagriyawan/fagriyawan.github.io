@@ -237,7 +237,11 @@
         }
 
         skeleton = new spine.Skeleton(skeletonData);
-        skeleton.setSkinByName("default");
+        // Only set skin if "default" exists; some skeletons have no named skins
+        const defaultSkin = skeletonData.findSkin("default");
+        if (defaultSkin) {
+          skeleton.setSkinByName("default");
+        }
         skeleton.setSlotsToSetupPose();
 
         animStateData = new spine.AnimationStateData(skeletonData);
