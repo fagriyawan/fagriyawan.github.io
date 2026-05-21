@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Character Select ⚔️ Heroes Tropis</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0a0e1a; color: #f1faee; font-family: system-ui, sans-serif; min-height: 100vh; display: flex; flex-direction: column; }
+    h1 { text-align: center; padding: 1rem; font-size: 1.4rem; }
+    .roster { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; padding: 0 1rem 1rem; }
+    .char-card { width: 80px; padding: 8px; text-align: center; background: rgba(255,255,255,0.05); border: 2px solid rgba(255,255,255,0.1); border-radius: 10px; cursor: pointer; transition: all 0.2s; }
+    .char-card:hover { border-color: #9b5de5; transform: translateY(-3px); }
+    .char-card.active { border-color: #9b5de5; background: rgba(155,93,229,0.2); box-shadow: 0 0 12px rgba(155,93,229,0.4); }
+    .char-card .num { font-size: 1.4rem; }
+    .char-card .label { font-size: 0.7rem; color: #8899aa; margin-top: 4px; }
+    .char-card .ver { font-size: 0.6rem; color: #556; }
+    .viewer { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 0.5rem; }
+    #pixi-container canvas { border: 2px solid rgba(255,255,255,0.1); border-radius: 12px; }
+    .anim-controls { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; padding: 0.8rem; max-width: 600px; }
+    .abtn { padding: 0.4rem 0.8rem; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.06); color: #ccc; border-radius: 6px; cursor: pointer; font-size: 0.75rem; font-family: inherit; }
+    .abtn:hover { background: rgba(155,93,229,0.2); border-color: #9b5de5; }
+    .abtn.active { background: #9b5de5; color: white; border-color: #9b5de5; }
+    .status { font-size: 0.8rem; color: #8899aa; text-align: center; padding: 0.5rem; }
+    .info { font-size: 0.75rem; color: #667; text-align: center; }
+  </style>
+</head>
+<body>
+  <h1>⚔️ Character Select — Heroes Tropis</h1>
+  <div class="roster" id="roster"></div>
+  <div class="viewer">
+    <div id="pixi-container"></div>
+    <div class="anim-controls" id="animControls"></div>
+    <div class="status" id="status">Pilih karakter di atas untuk preview</div>
+    <div class="info" id="info"></div>
+  </div>
+
+  <script src="pixi.min.js"></script>
+  <script src="pixi-spine.js"></script>
+  <script>
+    const CHARACTERS = [
+      { id: "char001", name: "Mage", icon: "🔮", skeleton: "assets/char001/cream_arcade_000.json", scale: 0.25, ver: "3.6" },
+      { id: "char002", name: "Sword", icon: "⚔️", skeleton: "assets/char002/H30056.skel", scale: 0.2, ver: "3.8" },
+      { id: "char003", name: "Warrior", icon: "🛡️", skeleton: "assets/char003/L05001.skel", scale: 0.25, ver: "3.6" },
+      { id: "char004", name: "Heavy", icon: "💥", skeleton: "assets/char004/H30103.skel", scale: 0.15, ver: "3.8" },
+      { id: "char005", name: "Fighter", icon: "👊", skeleton: "assets/char005/crew110016.skel", scale: 0.25, ver: "3.6" },
+      { id: "char006", name: "Archer", icon: "🏹", skeleton: "assets/char006/crew110026.skel", scale: 0.35, ver: "3.6" },
+      { id: "char007", name: "Assassin", icon: "🗡️", skeleton: "assets/char007/crew130004.skel", scale: 0.3, ver: "3.6" },
+    ];
+
+    let app, currentSpine = null;
+
+    function initPixi() {
+      app = new PIXI.Application({ width: 450, height: 500, backgroundColor: 0x0a0e1a, antialias: true });
+      document.getElementById("pixi-container").appendChild(app.view);
+    }
+
+    function buildRoster() {
+      const roster = document.getElementById("roster");
+      CHARACTERS.forEach(ch => {
+        const card = document.createElement("div");
+        card.className = "char-card";
+        card.id = "card-" + ch.id;
+        card.innerHTML = `<div class="num">${ch.icon}</div><div class="label">${ch.name}</div><div class="ver">v${ch.ver}</div>`;
+        card.addEventListener("click", () => selectChar(ch));
+        roster.appendChild(card);
+      });
+    }
+
+    function selectChar(ch) {
+      document.querySelectorAll(".char-card").forEach(c => c.classList.remove("active"));
+      document.getElementById("card-" + ch.id).classList.add("active");
+      document.getElementById("status").textContent = `Loading ${ch.name}...`;
+      document.getElementById("animControls").innerHTML = "";
+      document.getElementById("info").textContent = "";
+      loadCharacter(ch);
+    }
+
+    function loadCharacter(ch) {
+      if (currentSpine) { app.stage.removeChild(currentSpine); currentSpine.destroy(); currentSpine = null; }
+
+      const loader = new PIXI.Loader();
+      loader.add(ch.id, ch.skeleton);
+      loader.load((_, resources) => {
+        const res = resources[ch.id];
+        if (!res || !res.spineData) {
+          document.getElementById("status").textContent = `Error loading ${ch.name}`;
+          if (res && res.error) document.getElementById("info").textContent = res.error.toString();
+          return;
+        }
+        try {
+          const spineAnim = new PIXI.spine.Spine(res.spineData);
+          spineAnim.scale.set(ch.scale);
+          spineAnim.x = app.renderer.width / 2;
+          spineAnim.y = app.renderer.height * 0.85;
+          app.stage.addChild(spineAnim);
+          currentSpine = spineAnim;
+
+          const anims = res.spineData.animations.map(a => a.name);
+          const idle = anims.find(a => a.toLowerCase().includes("idle")) || anims[0];
+          if (idle) spineAnim.state.setAnimation(0, idle, true);
+
+          buildAnimButtons(spineAnim, anims, idle, ch);
+          document.getElementById("status").textContent = `${ch.icon} ${ch.name} — Playing: ${idle || "none"}`;
+          document.getElementById("info").textContent = `${ch.id} | Spine ${ch.ver} | ${anims.length} animations`;
+        } catch (e) {
+          document.getElementById("status").textContent = `Error: ${e.message}`;
+          console.error(e);
+        }
+      });
+      loader.onError.add((err, _, res) => {
+        document.getElementById("status").textContent = `Load error: ${err}`;
+      });
+    }
+
+    function buildAnimButtons(spine, anims, active, ch) {
+      const c = document.getElementById("animControls");
+      c.innerHTML = "";
+      anims.forEach(name => {
+        const btn = document.createElement("button");
+        btn.className = "abtn" + (name === active ? " active" : "");
+        btn.textContent = name;
+        btn.addEventListener("click", () => {
+          const loop = /idle|walk|loop|run/i.test(name);
+          spine.state.setAnimation(0, name, loop);
+          if (!loop) { const i = anims.find(a => /idle/i.test(a)) || anims[0]; if (i) spine.state.addAnimation(0, i, true, 0); }
+          document.getElementById("status").textContent = `${ch.icon} ${ch.name} — Playing: ${name}`;
+          c.querySelectorAll(".abtn").forEach(b => b.classList.remove("active"));
+          btn.classList.add("active");
+        });
+        c.appendChild(btn);
+      });
+    }
+
+    initPixi();
+    buildRoster();
+  </script>
+</body>
+</html>
