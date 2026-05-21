@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Spine Character Demo ⚔️</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: linear-gradient(180deg, #1a2a3a, #2d1f3d, #1a1a2e);
+      color: #f1faee; font-family: system-ui, sans-serif;
+      min-height: 100vh; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 1rem; padding: 1rem;
+    }
+    h1 { font-size: 1.5rem; text-align: center; }
+    canvas {
+      border: 2px solid rgba(255,255,255,0.1); border-radius: 12px;
+      max-width: 100%;
+    }
+    .controls {
+      display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; max-width: 600px;
+    }
+    .btn {
+      padding: 0.5rem 1rem; border: 1px solid rgba(255,255,255,0.2);
+      background: rgba(255,255,255,0.08); color: #f1faee;
+      border-radius: 8px; cursor: pointer; font-family: inherit;
+      font-size: 0.85rem; transition: all 0.15s;
+    }
+    .btn:hover { background: rgba(155,93,229,0.3); border-color: #9b5de5; }
+    .btn.active { background: #9b5de5; border-color: #9b5de5; color: white; }
+    .status { font-size: 0.85rem; color: #8899aa; text-align: center; }
+  </style>
+</head>
+<body>
+  <h1>⚔️ Spine Character Demo (WebGL)</h1>
+  <canvas id="canvas" width="500" height="600"></canvas>
+  <div class="controls" id="controls"></div>
+  <div class="status" id="status">Loading...</div>
+
+  <script src="spine-webgl.js"></script>
+  <script>
+    const ATLAS_URL = "assets/char001/cream_arcade_000.atlas";
+    const JSON_URL = "assets/char001/cream_arcade_000.json";
+
+    const statusEl = document.getElementById("status");
+    const controlsEl = document.getElementById("controls");
+
+    let gl, shader, batcher, renderer, skeletonRenderer;
+    let skeleton, animState, animStateData, bounds;
+    let lastTime = 0;
+    let mvp = new spine.webgl.Matrix4();
+
+    function init() {
+      const canvas = document.getElementById("canvas");
+      const config = { alpha: true, premultipliedAlpha: true };
+      gl = canvas.getContext("webgl", config) || canvas.getContext("experimental-webgl", config);
+      if (!gl) {
+        statusEl.textContent = "WebGL not supported!";
+        return;
+      }
+      shader = spine.webgl.Shader.newTwoColoredTextured(gl);
+      batcher = new spine.webgl.PolygonBatcher(gl);
+      skeletonRenderer = new spine.webgl.SkeletonRenderer(gl);
+      skeletonRenderer.premultipliedAlpha = true;
+
+      loadAssets();
+    }
+
+    function loadAssets() {
+      statusEl.textContent = "Loading assets...";
+
+      const assetManager = new spine.webgl.AssetManager(gl, "");
+
+      // Load atlas with fixed content (strip pma: line)
+      fetch(ATLAS_URL)
+        .then(r => r.text())
+        .then(rawAtlas => {
+          // Fix atlas: remove pma: lines and leading blank lines
+          const lines = rawAtlas.split('\n');
+          const fixed = [];
+          for (let i = 0; i < lines.length; i++) {
+            const t = lines[i].trim();
+            if (fixed.length === 0 && t === '') continue;
+            if (t.startsWith('pma:')) continue;
+            fixed.push(lines[i]);
+          }
+          const atlasText = fixed.join('\n');
+
+          // Load texture image
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+          img.onload = function() {
+            // Create WebGL texture
+            const glTexture = new spine.webgl.GLTexture(gl, img);
+
+            // Parse atlas
+            const atlas = new spine.TextureAtlas(atlasText, function(path) {
+              return glTexture;
+            });
+
+            // Load skeleton JSON
+            fetch(JSON_URL)
+              .then(r => r.json())
+              .then(jsonData => {
+                setupSkeleton(atlas, jsonData);
+              });
+          };
+          img.onerror = function() {
+            statusEl.textContent = "Error loading texture";
+          };
+          img.src = "assets/char001/cream_arcade_000.png";
+        });
+    }
+
+    function setupSkeleton(atlas, jsonData) {
+      const atlasLoader = new spine.AtlasAttachmentLoader(atlas);
+      const skeletonJson = new spine.SkeletonJson(atlasLoader);
+      skeletonJson.scale = 0.3;
+
+      const skeletonData = skeletonJson.readSkeletonData(jsonData);
+
+      skeleton = new spine.Skeleton(skeletonData);
+      skeleton.setSkinByName("default");
+      skeleton.setSlotsToSetupPose();
+
+      animStateData = new spine.AnimationStateData(skeletonData);
+      animStateData.defaultMix = 0.3;
+      animState = new spine.AnimationState(animStateData);
+      animState.setAnimation(0, "Idle", true);
+
+      // Calculate bounds
+      skeleton.setToSetupPose();
+      skeleton.updateWorldTransform();
+      const offset = new spine.Vector2();
+      const size = new spine.Vector2();
+      skeleton.getBounds(offset, size, []);
+      bounds = { offset, size };
+
+      // Build UI controls
+      buildControls(skeletonData.animations);
+
+      statusEl.textContent = "Playing: Idle (loop)";
+      lastTime = Date.now() / 1000;
+      requestAnimationFrame(render);
+    }
+
+    function buildControls(animations) {
+      controlsEl.innerHTML = "";
+      animations.forEach(anim => {
+        const btn = document.createElement("button");
+        btn.className = "btn" + (anim.name === "Idle" ? " active" : "");
+        btn.textContent = anim.name;
+        btn.addEventListener("click", () => {
+          const isLoop = anim.name === "Idle" || anim.name === "Walk" || anim.name.includes("Loop");
+          animState.setAnimation(0, anim.name, isLoop);
+          statusEl.textContent = `Playing: ${anim.name} (${isLoop ? "loop" : "once"})`;
+          if (!isLoop) animState.addAnimation(0, "Idle", true, 0);
+          document.querySelectorAll(".btn").forEach(b => b.classList.remove("active"));
+          btn.classList.add("active");
+        });
+        controlsEl.appendChild(btn);
+      });
+    }
+
+    function render() {
+      const now = Date.now() / 1000;
+      const delta = now - lastTime;
+      lastTime = now;
+
+      const canvas = document.getElementById("canvas");
+
+      // Update
+      animState.update(delta);
+      animState.apply(skeleton);
+      skeleton.updateWorldTransform();
+
+      // Resize/clear
+      gl.viewport(0, 0, canvas.width, canvas.height);
+      gl.clearColor(0.1, 0.12, 0.18, 1);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+
+      // Setup MVP matrix — center skeleton in view
+      const centerX = bounds.offset.x + bounds.size.x / 2;
+      const centerY = bounds.offset.y + bounds.size.y / 2;
+      const scaleX = bounds.size.x / canvas.width;
+      const scaleY = bounds.size.y / canvas.height;
+      const scale = Math.max(scaleX, scaleY) * 1.2;
+
+      mvp.ortho2d(
+        centerX - canvas.width / 2 * scale,
+        centerY - canvas.height / 2 * scale,
+        canvas.width * scale,
+        canvas.height * scale
+      );
+
+      // Render
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+
+      shader.bind();
+      shader.setUniformi(spine.webgl.Shader.SAMPLER, 0);
+      shader.setUniform4x4f(spine.webgl.Shader.MVP_MATRIX, mvp.values);
+
+      batcher.begin(shader);
+      skeletonRenderer.premultipliedAlpha = true;
+      skeletonRenderer.draw(batcher, skeleton);
+      batcher.end();
+
+      shader.unbind();
+
+      requestAnimationFrame(render);
+    }
+
+    // Start
+    init();
+  </script>
+</body>
+</html>
