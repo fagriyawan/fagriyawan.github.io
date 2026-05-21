@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Character Select ⚔️ Heroes Tropis</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #0a0e1a; color: #f1faee;
+      font-family: system-ui, sans-serif;
+      min-height: 100vh; display: flex; flex-direction: column;
+    }
+    h1 { text-align: center; padding: 1rem; font-size: 1.4rem; }
+    .roster {
+      display: flex; flex-wrap: wrap; gap: 10px; justify-content: center;
+      padding: 0 1rem 1rem;
+    }
+    .char-card {
+      width: 80px; padding: 8px; text-align: center;
+      background: rgba(255,255,255,0.05); border: 2px solid rgba(255,255,255,0.1);
+      border-radius: 10px; cursor: pointer; transition: all 0.2s;
+    }
+    .char-card:hover { border-color: #9b5de5; transform: translateY(-3px); }
+    .char-card.active { border-color: #9b5de5; background: rgba(155,93,229,0.2); box-shadow: 0 0 12px rgba(155,93,229,0.4); }
+    .char-card .num { font-size: 1.4rem; }
+    .char-card .label { font-size: 0.7rem; color: #8899aa; margin-top: 4px; }
+    .char-card .ver { font-size: 0.6rem; color: #556; }
+    .viewer { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 0.5rem; }
+    canvas { border: 2px solid rgba(255,255,255,0.1); border-radius: 12px; max-width: 100%; }
+    .anim-controls {
+      display: flex; flex-wrap: wrap; gap: 6px; justify-content: center;
+      padding: 0.8rem; max-width: 600px;
+    }
+    .abtn {
+      padding: 0.4rem 0.8rem; border: 1px solid rgba(255,255,255,0.15);
+      background: rgba(255,255,255,0.06); color: #ccc;
+      border-radius: 6px; cursor: pointer; font-size: 0.75rem; font-family: inherit;
+    }
+    .abtn:hover { background: rgba(155,93,229,0.2); border-color: #9b5de5; }
+    .abtn.active { background: #9b5de5; color: white; border-color: #9b5de5; }
+    .status { font-size: 0.8rem; color: #8899aa; text-align: center; padding: 0.5rem; }
+    .info { font-size: 0.75rem; color: #667; text-align: center; }
+  </style>
+</head>
+<body>
+  <h1>⚔️ Character Select — Heroes Tropis</h1>
+
+  <div class="roster" id="roster"></div>
+
+  <div class="viewer">
+    <canvas id="canvas" width="450" height="500"></canvas>
+    <div class="anim-controls" id="animControls"></div>
+    <div class="status" id="status">Pilih karakter di atas untuk preview</div>
+    <div class="info" id="info"></div>
+  </div>
+
+  <script>
+    // Character definitions
+    const CHARACTERS = [
+      { id: "char001", name: "Mage", icon: "🔮", runtime: "36", format: "json",
+        atlas: "assets/char001/cream_arcade_000.atlas",
+        skeleton: "assets/char001/cream_arcade_000.json",
+        texture: "assets/char001/cream_arcade_000.png",
+        pma: true, scale: 0.3, ver: "3.6" },
+      { id: "char002", name: "Sword", icon: "⚔️", runtime: "38", format: "skel",
+        atlas: "assets/char002/H30056.atlas",
+        skeleton: "assets/char002/H30056.skel",
+        texture: "assets/char002/H30056.png",
+        pma: false, scale: 0.25, ver: "3.8" },
+      { id: "char003", name: "Warrior", icon: "🛡️", runtime: "36", format: "skel",
+        atlas: "assets/char003/L05001.atlas",
+        skeleton: "assets/char003/L05001.skel",
+        texture: "assets/char003/L05001.png",
+        pma: false, scale: 0.3, ver: "3.6" },
+      { id: "char004", name: "Heavy", icon: "💥", runtime: "38", format: "skel",
+        atlas: "assets/char004/H30103.atlas",
+        skeleton: "assets/char004/H30103.skel",
+        texture: "assets/char004/H30103.png",
+        pma: false, scale: 0.2, ver: "3.8" },
+      { id: "char005", name: "Fighter", icon: "👊", runtime: "36", format: "skel",
+        atlas: "assets/char005/crew110016.atlas",
+        skeleton: "assets/char005/crew110016.skel",
+        texture: "assets/char005/crew110016.png",
+        pma: false, scale: 0.3, ver: "3.6" },
+      { id: "char006", name: "Archer", icon: "🏹", runtime: "36", format: "skel",
+        atlas: "assets/char006/crew110026.atlas",
+        skeleton: "assets/char006/crew110026.skel",
+        texture: "assets/char006/crew110026.png",
+        pma: false, scale: 0.4, ver: "3.6" },
+      { id: "char007", name: "Assassin", icon: "🗡️", runtime: "36", format: "skel",
+        atlas: "assets/char007/crew130004.atlas",
+        skeleton: "assets/char007/crew130004.skel",
+        texture: "assets/char007/crew130004.png",
+        pma: false, scale: 0.35, ver: "3.6" },
+    ];
+
+    let currentChar = null;
+    let gl, canvas;
+    let loadedRuntime = null; // "36" or "38"
+    let skeleton, animState, animStateData;
+    let shader, batcher, skeletonRenderer;
+    let mvp;
+    let camX = 0, camY = 0, camScale = 1;
+    let lastTime = 0;
+    let animFrameId = null;
+
+    // Build roster UI
+    function buildRoster() {
+      const roster = document.getElementById("roster");
+      CHARACTERS.forEach((ch, i) => {
+        const card = document.createElement("div");
+        card.className = "char-card";
+        card.id = "card-" + ch.id;
+        card.innerHTML = `<div class="num">${ch.icon}</div><div class="label">${ch.name}</div><div class="ver">v${ch.ver}</div>`;
+        card.addEventListener("click", () => selectChar(ch));
+        roster.appendChild(card);
+      });
+    }
+
+    function selectChar(ch) {
+      // Update UI
+      document.querySelectorAll(".char-card").forEach(c => c.classList.remove("active"));
+      document.getElementById("card-" + ch.id).classList.add("active");
+      document.getElementById("status").textContent = `Loading ${ch.name}...`;
+      document.getElementById("animControls").innerHTML = "";
+
+      currentChar = ch;
+
+      // Stop current animation
+      if (animFrameId) { cancelAnimationFrame(animFrameId); animFrameId = null; }
+
+      // Load appropriate runtime then load character
+      loadRuntime(ch.runtime, () => {
+        loadCharacter(ch);
+      });
+    }
+
+    function loadRuntime(version, callback) {
+      if (loadedRuntime === version) {
+        callback();
+        return;
+      }
+
+      // Remove old script if exists
+      const old = document.getElementById("spine-script");
+      if (old) old.remove();
+
+      // Reset spine namespace
+      if (window.spine) delete window.spine;
+
+      const script = document.createElement("script");
+      script.id = "spine-script";
+      script.src = version === "38" ? "spine-webgl-38.js" : "spine-webgl.js";
+      script.onload = () => {
+        loadedRuntime = version;
+        // Re-init WebGL with new spine
+        initGL();
+        callback();
+      };
+      script.onerror = () => {
+        document.getElementById("status").textContent = `Error loading spine runtime v${version}`;
+      };
+      document.head.appendChild(script);
+    }
+
+    function initGL() {
+      canvas = document.getElementById("canvas");
+      const config = { alpha: true, premultipliedAlpha: true, preserveDrawingBuffer: true };
+      // Need to recreate context if runtime changed - but WebGL context persists
+      if (!gl) {
+        gl = canvas.getContext("webgl", config) || canvas.getContext("experimental-webgl", config);
+      }
+      shader = spine.webgl.Shader.newTwoColoredTextured(gl);
+      batcher = new spine.webgl.PolygonBatcher(gl);
+      skeletonRenderer = new spine.webgl.SkeletonRenderer(gl);
+      mvp = new spine.webgl.Matrix4();
+    }
+
+    function loadCharacter(ch) {
+      // Load atlas
+      fetch(ch.atlas)
+        .then(r => r.text())
+        .then(rawAtlas => {
+          // Fix atlas: remove pma: and leading blanks
+          const lines = rawAtlas.split('\n');
+          const fixed = [];
+          for (let i = 0; i < lines.length; i++) {
+            const t = lines[i].trim();
+            if (fixed.length === 0 && t === '') continue;
+            if (t.startsWith('pma:')) continue;
+            fixed.push(lines[i]);
+          }
+          const atlasText = fixed.join('\n');
+
+          // Load texture
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+          img.onload = () => {
+            const glTexture = new spine.webgl.GLTexture(gl, img);
+            const atlas = new spine.TextureAtlas(atlasText, (path) => glTexture);
+
+            // Load skeleton
+            if (ch.format === "json") {
+              fetch(ch.skeleton).then(r => r.json()).then(jsonData => {
+                setupSkeleton(ch, atlas, jsonData, null);
+              });
+            } else {
+              fetch(ch.skeleton).then(r => r.arrayBuffer()).then(buf => {
+                setupSkeleton(ch, atlas, null, new Uint8Array(buf));
+              });
+            }
+          };
+          img.onerror = () => {
+            document.getElementById("status").textContent = `Error loading texture for ${ch.name}`;
+          };
+          img.src = ch.texture;
+        })
+        .catch(err => {
+          document.getElementById("status").textContent = `Error: ${err.message}`;
+        });
+    }
+
+    function setupSkeleton(ch, atlas, jsonData, skelBinary) {
+      try {
+        const atlasLoader = new spine.AtlasAttachmentLoader(atlas);
+        let skeletonData;
+
+        if (jsonData) {
+          const skeletonJson = new spine.SkeletonJson(atlasLoader);
+          skeletonJson.scale = ch.scale;
+          skeletonData = skeletonJson.readSkeletonData(jsonData);
+        } else {
+          const skeletonBinary = new spine.SkeletonBinary(atlasLoader);
+          skeletonBinary.scale = ch.scale;
+          skeletonData = skeletonBinary.readSkeletonData(skelBinary);
+        }
+
+        skeleton = new spine.Skeleton(skeletonData);
+        skeleton.setSkinByName("default");
+        skeleton.setSlotsToSetupPose();
+
+        animStateData = new spine.AnimationStateData(skeletonData);
+        animStateData.defaultMix = 0.3;
+        animState = new spine.AnimationState(animStateData);
+
+        // Play first animation
+        const anims = skeletonData.animations;
+        const idleAnim = anims.find(a => a.name.toLowerCase().includes("idle")) || anims[0];
+        if (idleAnim) animState.setAnimation(0, idleAnim.name, true);
+
+        // Init camera
+        skeleton.setToSetupPose();
+        skeleton.updateWorldTransform();
+        const offset = new spine.Vector2(), size = new spine.Vector2();
+        skeleton.getBounds(offset, size, []);
+        camX = offset.x + size.x / 2;
+        camY = offset.y + size.y / 2;
+        camScale = Math.max(size.x / canvas.width, size.y / canvas.height) * 1.3;
+
+        // Build anim buttons
+        buildAnimButtons(anims, idleAnim ? idleAnim.name : "");
+
+        // Update status
+        const info = `${ch.id} | Spine ${ch.ver} | ${ch.format.toUpperCase()} | ${anims.length} animations`;
+        document.getElementById("status").textContent = `${ch.icon} ${ch.name} — Playing: ${idleAnim ? idleAnim.name : "none"}`;
+        document.getElementById("info").textContent = info;
+
+        // Start render
+        skeletonRenderer.premultipliedAlpha = ch.pma;
+        lastTime = Date.now() / 1000;
+        if (animFrameId) cancelAnimationFrame(animFrameId);
+        render();
+
+      } catch (e) {
+        document.getElementById("status").textContent = `Error loading ${ch.name}: ${e.message}`;
+        document.getElementById("info").textContent = e.stack ? e.stack.split('\n')[0] : '';
+        console.error(e);
+      }
+    }
+
+    function buildAnimButtons(anims, activeName) {
+      const container = document.getElementById("animControls");
+      container.innerHTML = "";
+      anims.forEach(anim => {
+        const btn = document.createElement("button");
+        btn.className = "abtn" + (anim.name === activeName ? " active" : "");
+        btn.textContent = anim.name;
+        btn.addEventListener("click", () => {
+          const isLoop = anim.name.toLowerCase().includes("idle") ||
+                         anim.name.toLowerCase().includes("walk") ||
+                         anim.name.toLowerCase().includes("loop") ||
+                         anim.name.toLowerCase().includes("run");
+          animState.setAnimation(0, anim.name, isLoop);
+          if (!isLoop) {
+            const idle = anims.find(a => a.name.toLowerCase().includes("idle")) || anims[0];
+            if (idle) animState.addAnimation(0, idle.name, true, 0);
+          }
+          document.getElementById("status").textContent = `${currentChar.icon} ${currentChar.name} — Playing: ${anim.name}`;
+          container.querySelectorAll(".abtn").forEach(b => b.classList.remove("active"));
+          btn.classList.add("active");
+        });
+        container.appendChild(btn);
+      });
+    }
+
+    function render() {
+      const now = Date.now() / 1000;
+      const delta = Math.min(now - lastTime, 0.1);
+      lastTime = now;
+
+      // Update
+      animState.update(delta);
+      animState.apply(skeleton);
+      skeleton.updateWorldTransform();
+
+      // Dynamic camera
+      const offset = new spine.Vector2(), size = new spine.Vector2();
+      skeleton.getBounds(offset, size, []);
+      const tx = offset.x + size.x / 2;
+      const ty = offset.y + size.y / 2;
+      const ts = Math.max(size.x / canvas.width, size.y / canvas.height) * 1.3;
+      const lerp = Math.min(1, delta * 5);
+      camX += (tx - camX) * lerp;
+      camY += (ty - camY) * lerp;
+      camScale += (ts - camScale) * lerp;
+
+      // Clear & render
+      gl.viewport(0, 0, canvas.width, canvas.height);
+      gl.clearColor(0.06, 0.08, 0.12, 1);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+
+      mvp.ortho2d(
+        camX - canvas.width / 2 * camScale,
+        camY - canvas.height / 2 * camScale,
+        canvas.width * camScale,
+        canvas.height * camScale
+      );
+
+      gl.enable(gl.BLEND);
+      if (currentChar && currentChar.pma) {
+        gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+      } else {
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+      }
+
+      shader.bind();
+      shader.setUniformi(spine.webgl.Shader.SAMPLER, 0);
+      shader.setUniform4x4f(spine.webgl.Shader.MVP_MATRIX, mvp.values);
+      batcher.begin(shader);
+      skeletonRenderer.draw(batcher, skeleton);
+      batcher.end();
+      shader.unbind();
+
+      animFrameId = requestAnimationFrame(render);
+    }
+
+    // Init
+    buildRoster();
+  </script>
+</body>
+</html>
