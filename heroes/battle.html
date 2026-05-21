@@ -157,15 +157,25 @@ async function preloadAll() {
 
 // ============ FIND ANIMATION ============
 function findAnim(anims, type) {
-    const p = { idle:[/idle/i,/wait/i,/stand/i,/normal/i], walk:[/walk/i,/run/i,/move/i], attack:[/skill.?01/i,/attack/i,/skill/i,/atk/i], die:[/die/i,/dead/i,/death/i] };
+    const p = {
+        idle: [/^idle$/i, /^wait$/i, /^normal$/i, /^stand$/i, /idle/i, /wait/i, /normal/i],
+        walk: [/^walk$/i, /walk/i, /^run$/i, /move/i],
+        attack: [/^beatk$/i, /^atk_action_0$/i, /^atk2$/i, /^Skill_01$/i, /^attack$/i, /beatk/i, /atk/i, /skill/i],
+        die: [/^die$/i, /^dead$/i, /death/i, /defeat/i]
+    };
     for (const re of (p[type]||[])) { const f = anims.find(a=>re.test(a)); if (f) return f; }
     if (type==='idle') return anims[0];
-    if (type==='attack') return anims[1]||anims[0];
+    if (type==='attack') return anims[0]; // fallback to first anim (idle) if no attack found
     return null;
 }
 
 // ============ CREATE UNIT ============
 const TARGET_HEIGHT = 90; // normalize all chars to this pixel height
+
+// Characters that face RIGHT by default (need flip for enemy side)
+// char002 (H30056) and char004 (H30103) are skel38 and face RIGHT
+// char001, char003, char005-007 face LEFT by default
+const FACES_RIGHT = { char002: true, char004: true };
 
 function createUnit(charIdx, side, x, y) {
     const def = CHARS[charIdx];
@@ -182,8 +192,18 @@ function createUnit(charIdx, side, x, y) {
         if (bounds.height > 0 && isFinite(bounds.height)) bh = bounds.height;
     } catch(e) {}
     const scale = TARGET_HEIGHT / bh;
-    // All chars face LEFT by default. Heroes flip to face RIGHT.
-    spine.scale.set(side==='hero' ? -scale : scale, scale);
+
+    // Determine facing: we want heroes to face RIGHT, enemies to face LEFT
+    const defaultFacesRight = !!FACES_RIGHT[def.id];
+    let flipX = false;
+    if (side === 'hero') {
+        // Hero must face RIGHT
+        if (!defaultFacesRight) flipX = true; // default LEFT, flip to RIGHT
+    } else {
+        // Enemy must face LEFT
+        if (defaultFacesRight) flipX = true; // default RIGHT, flip to LEFT
+    }
+    spine.scale.set(flipX ? -scale : scale, scale);
     spine.x = x;
     spine.y = y;
     app.stage.addChild(spine);
