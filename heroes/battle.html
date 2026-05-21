@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Battle - Heroes Tropis</title>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { background:#0f0f1a; color:#eee; font-family:'Segoe UI',sans-serif; overflow:hidden; height:100vh; }
+        #hud { display:flex; justify-content:space-between; align-items:center; padding:8px 16px; background:linear-gradient(90deg,#1a1a2e,#16213e); border-bottom:2px solid #e94560; }
+        #hud h2 { font-size:1rem; color:#e94560; }
+        #hud .info { font-size:0.8rem; color:#aaa; }
+        .speed-btn { padding:4px 10px; margin-left:6px; background:#0f3460; color:#eee; border:1px solid #e94560; border-radius:4px; cursor:pointer; font-size:0.75rem; }
+        .speed-btn.active { background:#e94560; color:#fff; }
+        #canvas-wrap { width:100%; height:calc(100vh - 40px); position:relative; }
+        #overlay { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.8); z-index:10; flex-direction:column; gap:16px; }
+        #overlay h1 { font-size:2rem; color:#e94560; }
+        #overlay p { color:#aaa; font-size:0.9rem; }
+        #overlay button { padding:12px 32px; background:#e94560; color:#fff; border:none; border-radius:8px; font-size:1.1rem; cursor:pointer; font-weight:bold; }
+        #overlay button:hover { background:#ff6b8a; }
+        #overlay.hidden { display:none; }
+        #loading { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.9); z-index:20; color:#aaa; font-size:1rem; }
+        #loading.hidden { display:none; }
+    </style>
+</head>
+<body>
+<div id="hud">
+    <h2 id="stageTitle">Stage 1</h2>
+    <div class="info" id="hudInfo">Heroes: 3 | Enemies: 1</div>
+    <div>
+        <button class="speed-btn active" data-speed="1">1x</button>
+        <button class="speed-btn" data-speed="2">2x</button>
+        <button class="speed-btn" data-speed="3">3x</button>
+    </div>
+</div>
+<div id="canvas-wrap"></div>
+<div id="overlay">
+    <h1>⚔️ Heroes Tropis</h1>
+    <p>3 Heroes vs Enemies — 5 Stages</p>
+    <button id="btnStart">Start Battle</button>
+</div>
+<div id="loading">Loading characters...</div>
+
+<script src="pixi.min.js"></script>
+<script src="pixi-spine.js"></script>
+<script src="spine36-skel2json.js"></script>
+<script>
+(function(){
+'use strict';
+
+// ===== CHARACTER DEFINITIONS =====
+const CHAR_DEFS = [
+    { id:'char001', name:'Mage', dataFile:'assets/char001/cream_arcade_000.json', atlasFile:'assets/char001/cream_arcade_000.atlas', format:'json36', hp:350, atk:65, atkSpeed:1.4, range:250, moveSpeed:50, type:'ranged' },
+    { id:'char002', name:'Swordsman', dataFile:'assets/char002/H30056.skel', atlasFile:'assets/char002/H30056.atlas', format:'skel38', hp:600, atk:75, atkSpeed:0.9, range:60, moveSpeed:100, type:'melee' },
+    { id:'char003', name:'Warrior', dataFile:'assets/char003/L05001.skel', atlasFile:'assets/char003/L05001.atlas', format:'skel36', hp:800, atk:45, atkSpeed:1.2, range:60, moveSpeed:80, type:'melee' },
+    { id:'char004', name:'Heavy', dataFile:'assets/char004/H30103.skel', atlasFile:'assets/char004/H30103.atlas', format:'skel38', hp:500, atk:55, atkSpeed:1.0, range:200, moveSpeed:60, type:'ranged' },
+    { id:'char005', name:'Fighter', dataFile:'assets/char005/crew110016.skel', atlasFile:'assets/char005/crew110016.atlas', format:'skel36', hp:650, atk:70, atkSpeed:1.0, range:60, moveSpeed:90, type:'melee' },
+    { id:'char006', name:'Archer', dataFile:'assets/char006/crew110026.skel', atlasFile:'assets/char006/crew110026.atlas', format:'skel36', hp:400, atk:55, atkSpeed:1.0, range:280, moveSpeed:55, type:'ranged' },
+    { id:'char007', name:'Assassin', dataFile:'assets/char007/crew130004.skel', atlasFile:'assets/char007/crew130004.atlas', format:'skel36', hp:450, atk:80, atkSpeed:0.7, range:55, moveSpeed:120, type:'melee' },
+];
+
+// ===== STAGE DEFINITIONS =====
+const STAGES = [
+    { id:1, name:'Forest', enemies:[4], reward:100 },
+    { id:2, name:'Cave', enemies:[5,6], reward:150 },
+    { id:3, name:'Swamp', enemies:[4,5,6], reward:200 },
+    { id:4, name:'Volcano', enemies:[3,4,5,6], reward:300 },
+    { id:5, name:'BOSS - Final', enemies:[0,1,2,3,4,5,6], reward:500 },
+];
+
+const HERO_SQUAD = [0, 1, 2]; // char001, char002, char003
+const UNIT_SCALE = 0.12;
+const GROUND_Y = 0.78;
+
+let app, gameSpeed = 1, battleActive = false, currentStage = 0;
+let units = [], spineDataCache = {}, lastTime = 0;
+
+// ===== PIXI INIT =====
+function initApp() {
+    const wrap = document.getElementById('canvas-wrap');
+    app = new PIXI.Application({ width: wrap.clientWidth, height: wrap.clientHeight, backgroundColor: 0x0f0f1a, antialias: true, resolution: window.devicePixelRatio||1, autoDensity: true });
+    wrap.appendChild(app.view);
+    window.addEventListener('resize', () => app.renderer.resize(wrap.clientWidth, wrap.clientHeight));
+}
+
+// ===== SPINE LOADING (same as character-select) =====
+async function loadSpineData(ch) {
+    if (spineDataCache[ch.id]) return spineDataCache[ch.id];
+    const atlasResp = await fetch(ch.atlasFile);
+    let atlasText = (await atlasResp.text()).split('\n').map(l=>l.trimEnd()).join('\n');
+    let jsonData;
+    if (ch.format === 'json36') {
+        jsonData = await (await fetch(ch.dataFile)).json();
+    } else if (ch.format === 'skel36') {
+        const buf = await (await fetch(ch.dataFile)).arrayBuffer();
+        jsonData = spine36SkelToJson(buf);
+    } else if (ch.format === 'skel38') {
+        const buf = await (await fetch(ch.dataFile)).arrayBuffer();
+        const rawData = new Uint8Array(buf);
+        const atlas = await parseAtlas(atlasText, ch);
+        const parser = new PIXI.spine.SpineParser();
+        const bp = parser.createBinaryParser();
+        bp.scale = 1;
+        const data = bp.readSkeletonData(atlas, rawData);
+        spineDataCache[ch.id] = data;
+        return data;
+    }
+    const atlas = await parseAtlas(atlasText, ch);
+    const parser = new PIXI.spine.SpineParser();
+    const jp = parser.createJsonParser();
+    jp.scale = 1;
+    const data = jp.readSkeletonData(atlas, jsonData);
+    spineDataCache[ch.id] = data;
+    return data;
+}
+
+function parseAtlas(atlasText, ch) {
+    return new Promise((resolve, reject) => {
+        const basePath = ch.atlasFile.substring(0, ch.atlasFile.lastIndexOf('/') + 1);
+        new PIXI.spine.TextureAtlas(atlasText, (pageName, callback) => {
+            const tex = PIXI.BaseTexture.from(basePath + pageName, { scaleMode: PIXI.SCALE_MODES.LINEAR });
+            if (tex.valid) callback(tex);
+            else { tex.once('loaded', ()=>callback(tex)); tex.once('error', ()=>reject(new Error('Tex fail: '+pageName))); }
+        }, (atlas) => resolve(atlas));
+    });
+}
+
+// ===== CREATE BATTLE UNIT =====
+function createUnit(charIdx, side, posX, posY) {
+    const def = CHAR_DEFS[charIdx];
+    const spineData = spineDataCache[def.id];
+    const spineObj = new PIXI.spine.Spine(spineData);
+    spineObj.scale.set(side === 'enemy' ? -UNIT_SCALE : UNIT_SCALE, UNIT_SCALE);
+    spineObj.x = posX;
+    spineObj.y = posY;
+    app.stage.addChild(spineObj);
+
+    // Find animations
+    const anims = spineData.animations.map(a=>a.name);
+    const idleAnim = anims.find(a=>/idle|wait|stand/i.test(a)) || anims[0];
+    const walkAnim = anims.find(a=>/walk|run|move/i.test(a)) || idleAnim;
+    const atkAnim = anims.find(a=>/skill|attack|hit/i.test(a)) || anims[1] || idleAnim;
+
+    if (idleAnim) spineObj.state.setAnimation(0, idleAnim, true);
+
+    // HP bar
+    const hpBar = new PIXI.Graphics();
+    app.stage.addChild(hpBar);
+
+    const unit = {
+        spine: spineObj, side, def, charIdx,
+        hp: def.hp * (side==='enemy' ? 1.2 : 1), maxHp: def.hp * (side==='enemy' ? 1.2 : 1),
+        atk: def.atk, atkSpeed: def.atkSpeed, range: def.range, moveSpeed: def.moveSpeed,
+        type: def.type, x: posX, y: posY,
+        atkTimer: 0, alive: true, state: 'idle',
+        anims: { idle: idleAnim, walk: walkAnim, attack: atkAnim },
+        hpBar, name: def.name
+    };
+    return unit;
+}
+
+function drawHpBar(unit) {
+    const g = unit.hpBar;
+    g.clear();
+    if (!unit.alive) return;
+    const w = 50, h = 5;
+    const x = unit.x - w/2, y = unit.y - 80;
+    const ratio = Math.max(0, unit.hp / unit.maxHp);
+    g.beginFill(0x333333); g.drawRect(x, y, w, h); g.endFill();
+    const color = ratio > 0.5 ? 0x44dd44 : ratio > 0.25 ? 0xddaa00 : 0xdd2222;
+    g.beginFill(color); g.drawRect(x, y, w * ratio, h); g.endFill();
+}
+
+// ===== BATTLE LOGIC =====
+function setState(unit, newState) {
+    if (unit.state === newState) return;
+    unit.state = newState;
+    const animName = unit.anims[newState] || unit.anims.idle;
+    try {
+        const loop = newState !== 'attack';
+        unit.spine.state.setAnimation(0, animName, loop);
+        if (newState === 'attack') {
+            unit.spine.state.addAnimation(0, unit.anims.idle, true, 0);
+        }
+    } catch(e) {}
+}
+
+function getTarget(unit) {
+    const enemies = units.filter(u => u.alive && u.side !== unit.side);
+    if (!enemies.length) return null;
+    let closest = null, minD = Infinity;
+    for (const e of enemies) {
+        const d = Math.abs(e.x - unit.x);
+        if (d < minD) { minD = d; closest = e; }
+    }
+    return closest;
+}
+
+function updateUnit(unit, dt) {
+    if (!unit.alive) return;
+    unit.atkTimer -= dt;
+
+    const target = getTarget(unit);
+    if (!target) { setState(unit, 'idle'); return; }
+
+    const dist = Math.abs(target.x - unit.x);
+    const inRange = dist <= unit.range + 30;
+
+    if (!inRange) {
+        const dir = unit.side === 'hero' ? 1 : -1;
+        unit.x += dir * unit.moveSpeed * dt;
+        unit.spine.x = unit.x;
+        setState(unit, 'walk');
+    } else {
+        if (unit.atkTimer <= 0) {
+            // Attack!
+            const dmg = Math.round(unit.atk * (0.85 + Math.random()*0.3));
+            target.hp -= dmg;
+            unit.atkTimer = unit.atkSpeed;
+            setState(unit, 'attack');
+
+            if (target.hp <= 0) {
+                target.hp = 0;
+                target.alive = false;
+                target.spine.visible = false;
+                target.hpBar.clear();
+            }
+        } else {
+            setState(unit, 'idle');
+        }
+    }
+    drawHpBar(unit);
+}
+
+// ===== GAME LOOP =====
+function gameLoop(time) {
+    if (!battleActive) return;
+    const rawDt = (time - lastTime) / 1000;
+    lastTime = time;
+    const dt = Math.min(rawDt, 0.1) * gameSpeed;
+
+    for (const u of units) updateUnit(u, dt);
+
+    // Check win/lose
+    const heroesAlive = units.filter(u=>u.side==='hero'&&u.alive).length;
+    const enemiesAlive = units.filter(u=>u.side==='enemy'&&u.alive).length;
+
+    if (enemiesAlive === 0) { endBattle(true); return; }
+    if (heroesAlive === 0) { endBattle(false); return; }
+
+    requestAnimationFrame(gameLoop);
+}
+
+// ===== STAGE MANAGEMENT =====
+async function startStage(stageIdx) {
+    currentStage = stageIdx;
+    const stage = STAGES[stageIdx];
+    document.getElementById('stageTitle').textContent = `Stage ${stage.id}: ${stage.name}`;
+    document.getElementById('hudInfo').textContent = `Heroes: 3 | Enemies: ${stage.enemies.length}`;
+
+    // Clear previous units
+    for (const u of units) { app.stage.removeChild(u.spine); app.stage.removeChild(u.hpBar); }
+    units = [];
+
+    const cw = app.renderer.width / (window.devicePixelRatio||1);
+    const ch = app.renderer.height / (window.devicePixelRatio||1);
+    const groundY = ch * GROUND_Y;
+
+    // Create heroes (left side)
+    const heroSpacing = 60;
+    for (let i = 0; i < HERO_SQUAD.length; i++) {
+        const x = cw * 0.15 + i * heroSpacing;
+        const y = groundY + (i - 1) * 15;
+        units.push(createUnit(HERO_SQUAD[i], 'hero', x, y));
+    }
+
+    // Create enemies (right side)
+    const enemySpacing = Math.min(60, (cw*0.4) / stage.enemies.length);
+    for (let i = 0; i < stage.enemies.length; i++) {
+        const x = cw * 0.85 - i * enemySpacing;
+        const y = groundY + (i % 3 - 1) * 15;
+        units.push(createUnit(stage.enemies[i], 'enemy', x, y));
+    }
+
+    // Start battle
+    battleActive = true;
+    lastTime = performance.now();
+    requestAnimationFrame(gameLoop);
+}
+
+function endBattle(won) {
+    battleActive = false;
+    const overlay = document.getElementById('overlay');
+    const btn = document.getElementById('btnStart');
+
+    if (won && currentStage < STAGES.length - 1) {
+        overlay.querySelector('h1').textContent = '🏆 Victory!';
+        overlay.querySelector('p').textContent = `Stage ${currentStage+1} cleared! +${STAGES[currentStage].reward} gold`;
+        btn.textContent = 'Next Stage';
+        btn.onclick = () => { overlay.classList.add('hidden'); startStage(currentStage + 1); };
+    } else if (won) {
+        overlay.querySelector('h1').textContent = '🎉 All Stages Cleared!';
+        overlay.querySelector('p').textContent = 'You defeated the boss! Congratulations!';
+        btn.textContent = 'Play Again';
+        btn.onclick = () => { overlay.classList.add('hidden'); startStage(0); };
+    } else {
+        overlay.querySelector('h1').textContent = '💀 Defeated...';
+        overlay.querySelector('p').textContent = `Stage ${currentStage+1} failed. Try again!`;
+        btn.textContent = 'Retry';
+        btn.onclick = () => { overlay.classList.add('hidden'); startStage(currentStage); };
+    }
+    overlay.classList.remove('hidden');
+}
+
+// ===== PRELOAD ALL CHARACTERS =====
+async function preloadAll() {
+    document.getElementById('loading').classList.remove('hidden');
+    for (const ch of CHAR_DEFS) {
+        try { await loadSpineData(ch); } catch(e) { console.error('Failed to load', ch.id, e); }
+    }
+    document.getElementById('loading').classList.add('hidden');
+}
+
+// ===== SPEED CONTROLS =====
+document.querySelectorAll('.speed-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.speed-btn').forEach(b=>b.classList.remove('active'));
+        btn.classList.add('active');
+        gameSpeed = parseInt(btn.dataset.speed);
+    });
+});
+
+// ===== BOOT =====
+initApp();
+document.getElementById('btnStart').onclick = async () => {
+    document.getElementById('overlay').classList.add('hidden');
+    await preloadAll();
+    startStage(0);
+};
+
+})();
+</script>
+</body>
+</html>
