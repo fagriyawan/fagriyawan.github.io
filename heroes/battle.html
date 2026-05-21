@@ -3,45 +3,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Auto Battle - Heroes</title>
+    <title>Auto Battle</title>
     <style>
         * { margin:0; padding:0; box-sizing:border-box; }
-        body { background:#0a0a14; color:#eee; font-family:'Segoe UI',sans-serif; overflow:hidden; height:100vh; }
-        #hud { display:flex; justify-content:space-between; align-items:center; padding:6px 12px; background:linear-gradient(90deg,#1a1a2e,#16213e); border-bottom:2px solid #e94560; }
-        #stageTitle { font-size:0.9rem; color:#e94560; font-weight:bold; }
-        #hudInfo { font-size:0.75rem; color:#ccc; }
-        .speed-controls { display:flex; gap:4px; }
-        .speed-btn { padding:3px 10px; background:#0f3460; color:#eee; border:1px solid #e94560; border-radius:4px; cursor:pointer; font-size:0.7rem; }
-        .speed-btn.active { background:#e94560; color:#fff; }
-        #canvas-wrap { width:100%; height:calc(100vh - 38px); position:relative; }
-        #overlay { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.88); z-index:10; flex-direction:column; gap:16px; }
-        #overlay h1 { font-size:1.8rem; color:#e94560; }
-        #overlay p { color:#aaa; font-size:0.85rem; text-align:center; max-width:360px; }
-        #overlay button { padding:10px 28px; background:#e94560; color:#fff; border:none; border-radius:8px; font-size:1rem; cursor:pointer; font-weight:bold; }
+        body { background:#000; color:#eee; font-family:'Segoe UI',sans-serif; overflow:hidden; height:100vh; }
+        #hud { position:absolute; top:0; left:0; right:0; z-index:5; display:flex; justify-content:space-between; align-items:center; padding:8px 14px; pointer-events:none; }
+        #stageTitle { font-size:0.85rem; color:#fff; font-weight:bold; text-shadow:0 1px 4px rgba(0,0,0,0.8); }
+        .speed-controls { display:flex; gap:4px; pointer-events:all; }
+        .speed-btn { padding:4px 12px; background:rgba(0,0,0,0.6); color:#fff; border:1px solid rgba(255,255,255,0.3); border-radius:4px; cursor:pointer; font-size:0.7rem; }
+        .speed-btn.active { background:#e94560; border-color:#e94560; }
+        #canvas-wrap { width:100%; height:100vh; position:relative; }
+        #overlay { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.9); z-index:10; flex-direction:column; gap:16px; }
+        #overlay h1 { font-size:1.6rem; color:#fff; }
+        #overlay p { color:#aaa; font-size:0.85rem; text-align:center; }
+        #overlay button { padding:12px 36px; background:#e94560; color:#fff; border:none; border-radius:8px; font-size:1rem; cursor:pointer; font-weight:bold; }
         #overlay button:hover { background:#ff6b8a; }
         #overlay.hidden { display:none; }
-        #log { position:absolute; top:6px; right:6px; width:220px; max-height:45vh; overflow-y:auto; background:rgba(10,10,20,0.88); border:1px solid #2a2a4a; border-radius:6px; padding:6px; font-size:0.6rem; z-index:5; pointer-events:none; }
-        #log div { margin-bottom:2px; line-height:1.3; }
-        .ldmg { color:#ff6b6b; }
-        .lkill { color:#ffd700; }
-        .lstage { color:#4ecdc4; font-weight:bold; }
     </style>
 </head>
 <body>
-<div id="hud">
-    <span id="stageTitle">Stage 1 / 5</span>
-    <span id="hudInfo">Heroes: 3 | Enemies: 1</span>
-    <div class="speed-controls">
-        <button class="speed-btn active" data-speed="1">1x</button>
-        <button class="speed-btn" data-speed="2">2x</button>
-        <button class="speed-btn" data-speed="3">3x</button>
+<div id="canvas-wrap">
+    <div id="hud">
+        <span id="stageTitle">Stage 1 / 5</span>
+        <div class="speed-controls">
+            <button class="speed-btn active" data-speed="1">1x</button>
+            <button class="speed-btn" data-speed="2">2x</button>
+            <button class="speed-btn" data-speed="3">3x</button>
+        </div>
     </div>
 </div>
-<div id="canvas-wrap">
-    <div id="log"></div>
-</div>
 <div id="overlay">
-    <h1 id="ovTitle">⚔️ Auto Battle</h1>
+    <h1 id="ovTitle">Auto Battle</h1>
     <p id="ovText">Loading characters...</p>
     <button id="ovBtn" style="display:none">START</button>
 </div>
@@ -54,14 +46,15 @@
 'use strict';
 
 // ============ CHARACTER DEFINITIONS ============
+// type: 'melee' = walk up close, 'ranged' = attack from distance
 const CHARS = [
-    { id:'char001', name:'Cream Arcade', dataFile:'assets/char001/cream_arcade_000.json', atlasFile:'assets/char001/cream_arcade_000.atlas', format:'json36' },
-    { id:'char002', name:'H30056', dataFile:'assets/char002/H30056.skel', atlasFile:'assets/char002/H30056.atlas', format:'skel38' },
-    { id:'char003', name:'L05001', dataFile:'assets/char003/L05001.skel', atlasFile:'assets/char003/L05001.atlas', format:'skel36' },
-    { id:'char004', name:'H30103', dataFile:'assets/char004/H30103.skel', atlasFile:'assets/char004/H30103.atlas', format:'skel38' },
-    { id:'char005', name:'Crew 110016', dataFile:'assets/char005/crew110016.skel', atlasFile:'assets/char005/crew110016.atlas', format:'skel36' },
-    { id:'char006', name:'Crew 110026', dataFile:'assets/char006/crew110026.skel', atlasFile:'assets/char006/crew110026.atlas', format:'skel36' },
-    { id:'char007', name:'Crew 130004', dataFile:'assets/char007/crew130004.skel', atlasFile:'assets/char007/crew130004.atlas', format:'skel36' }
+    { id:'char001', name:'Mage', dataFile:'assets/char001/cream_arcade_000.json', atlasFile:'assets/char001/cream_arcade_000.atlas', format:'json36', type:'ranged' },
+    { id:'char002', name:'Swordsman', dataFile:'assets/char002/H30056.skel', atlasFile:'assets/char002/H30056.atlas', format:'skel38', type:'melee' },
+    { id:'char003', name:'Warrior', dataFile:'assets/char003/L05001.skel', atlasFile:'assets/char003/L05001.atlas', format:'skel36', type:'melee' },
+    { id:'char004', name:'Gunner', dataFile:'assets/char004/H30103.skel', atlasFile:'assets/char004/H30103.atlas', format:'skel38', type:'ranged' },
+    { id:'char005', name:'Fighter', dataFile:'assets/char005/crew110016.skel', atlasFile:'assets/char005/crew110016.atlas', format:'skel36', type:'melee' },
+    { id:'char006', name:'Archer', dataFile:'assets/char006/crew110026.skel', atlasFile:'assets/char006/crew110026.atlas', format:'skel36', type:'ranged' },
+    { id:'char007', name:'Assassin', dataFile:'assets/char007/crew130004.skel', atlasFile:'assets/char007/crew130004.atlas', format:'skel36', type:'melee' }
 ];
 
 const HERO_IDS = [0,1,2];
@@ -77,21 +70,25 @@ const STAGES = [
 // ============ GLOBALS ============
 let app, gameSpeed = 1, currentStage = 0, battleRunning = false;
 let units = [], spineCache = {};
+const SCALE = 0.13;
+const MELEE_RANGE = 70;
+const RANGED_RANGE = 220;
+const MELEE_SPEED = 100;
+const RANGED_SPEED = 40;
+
 const wrap = document.getElementById('canvas-wrap');
 const ovEl = document.getElementById('overlay');
 const ovTitle = document.getElementById('ovTitle');
 const ovText = document.getElementById('ovText');
 const ovBtn = document.getElementById('ovBtn');
-const logEl = document.getElementById('log');
 const stageTitle = document.getElementById('stageTitle');
-const hudInfo = document.getElementById('hudInfo');
 
 // ============ INIT PIXI ============
 function initPixi() {
     app = new PIXI.Application({
         width: wrap.clientWidth,
         height: wrap.clientHeight,
-        backgroundColor: 0x0a0a14,
+        backgroundColor: 0x1a1a2e,
         antialias: true,
         resolution: window.devicePixelRatio || 1,
         autoDensity: true
@@ -102,117 +99,69 @@ function initPixi() {
     });
 }
 
-// ============ SPINE LOADING (exact same as character-select.html) ============
+// ============ SPINE LOADING ============
 function parseAtlas(atlasText, ch) {
     return new Promise((resolve, reject) => {
         const basePath = ch.atlasFile.substring(0, ch.atlasFile.lastIndexOf('/') + 1);
         let timeout = setTimeout(() => reject(new Error('Atlas timeout: ' + ch.id)), 15000);
-
         new PIXI.spine.TextureAtlas(atlasText, (pageName, callback) => {
-            const imgUrl = basePath + pageName;
-            const tex = PIXI.BaseTexture.from(imgUrl, { scaleMode: PIXI.SCALE_MODES.LINEAR });
-            if (tex.valid) {
-                callback(tex);
-            } else {
-                tex.once('loaded', () => callback(tex));
-                tex.once('error', () => reject(new Error('Texture failed: ' + pageName)));
-            }
-        }, (atlas) => {
-            clearTimeout(timeout);
-            resolve(atlas);
-        });
+            const tex = PIXI.BaseTexture.from(basePath + pageName, { scaleMode: PIXI.SCALE_MODES.LINEAR });
+            if (tex.valid) callback(tex);
+            else { tex.once('loaded', () => callback(tex)); tex.once('error', () => reject(new Error('Tex fail'))); }
+        }, (atlas) => { clearTimeout(timeout); resolve(atlas); });
     });
 }
 
 async function loadCharacter(ch) {
     if (spineCache[ch.id]) return spineCache[ch.id];
-
     const atlasResp = await fetch(ch.atlasFile);
-    if (!atlasResp.ok) throw new Error('Atlas fetch failed: ' + ch.atlasFile);
-    let atlasText = await atlasResp.text();
-    atlasText = atlasText.split('\n').map(l => l.trimEnd()).join('\n');
+    if (!atlasResp.ok) throw new Error('Atlas fail');
+    let atlasText = (await atlasResp.text()).split('\n').map(l=>l.trimEnd()).join('\n');
 
     let jsonData;
     if (ch.format === 'json36') {
-        const resp = await fetch(ch.dataFile);
-        if (!resp.ok) throw new Error('JSON fetch failed');
-        jsonData = await resp.json();
+        jsonData = await (await fetch(ch.dataFile)).json();
     } else if (ch.format === 'skel36') {
-        const resp = await fetch(ch.dataFile);
-        if (!resp.ok) throw new Error('Skel fetch failed');
-        const buf = await resp.arrayBuffer();
+        const buf = await (await fetch(ch.dataFile)).arrayBuffer();
         jsonData = spine36SkelToJson(buf);
     } else if (ch.format === 'skel38') {
-        const resp = await fetch(ch.dataFile);
-        if (!resp.ok) throw new Error('Skel fetch failed');
-        const buf = await resp.arrayBuffer();
-        const rawData = new Uint8Array(buf);
+        const buf = await (await fetch(ch.dataFile)).arrayBuffer();
         const atlas = await parseAtlas(atlasText, ch);
-        const parser = new PIXI.spine.SpineParser();
-        const bp = parser.createBinaryParser();
+        const bp = new PIXI.spine.SpineParser().createBinaryParser();
         bp.scale = 1;
-        const data = bp.readSkeletonData(atlas, rawData);
+        const data = bp.readSkeletonData(atlas, new Uint8Array(buf));
         spineCache[ch.id] = data;
         return data;
     }
-
     const atlas = await parseAtlas(atlasText, ch);
-    const parser = new PIXI.spine.SpineParser();
-    const jp = parser.createJsonParser();
+    const jp = new PIXI.spine.SpineParser().createJsonParser();
     jp.scale = 1;
     const data = jp.readSkeletonData(atlas, jsonData);
     spineCache[ch.id] = data;
     return data;
 }
 
-// ============ PRELOAD WITH PROGRESS ============
 async function preloadAll() {
     let loaded = 0, failed = 0;
     for (const ch of CHARS) {
         ovText.textContent = `Loading ${ch.name}... (${loaded+1}/${CHARS.length})`;
-        try {
-            await loadCharacter(ch);
-        } catch(e) {
-            console.warn('Failed to load', ch.id, e.message);
-            failed++;
-        }
+        try { await loadCharacter(ch); } catch(e) { console.warn('Failed:', ch.id, e.message); failed++; }
         loaded++;
     }
-    // Need at least heroes loaded
-    const heroesReady = HERO_IDS.every(i => !!spineCache[CHARS[i].id]);
-    if (!heroesReady) {
-        ovText.textContent = 'Error: Could not load hero characters. Check console.';
+    if (!HERO_IDS.every(i => !!spineCache[CHARS[i].id])) {
+        ovText.textContent = 'Error loading heroes.';
         return false;
     }
-    ovText.textContent = failed > 0 ? `Ready! (${failed} char(s) failed to load)` : 'All characters loaded!';
+    ovText.textContent = failed > 0 ? `Ready (${failed} failed)` : 'Ready!';
     return true;
-}
-
-// ============ BATTLE LOG ============
-function log(msg, cls) {
-    const d = document.createElement('div');
-    d.className = cls || '';
-    d.textContent = msg;
-    logEl.appendChild(d);
-    logEl.scrollTop = logEl.scrollHeight;
-    while (logEl.children.length > 40) logEl.removeChild(logEl.firstChild);
 }
 
 // ============ FIND ANIMATION ============
 function findAnim(anims, type) {
-    const patterns = {
-        idle: [/idle/i, /wait/i, /stand/i, /normal/i],
-        walk: [/walk/i, /run/i, /move/i],
-        attack: [/skill.?01/i, /attack/i, /skill/i, /atk/i],
-        die: [/die/i, /dead/i, /death/i, /defeat/i]
-    };
-    const pats = patterns[type] || [];
-    for (const p of pats) {
-        const found = anims.find(a => p.test(a));
-        if (found) return found;
-    }
-    if (type === 'idle') return anims[0];
-    if (type === 'attack') return anims[1] || anims[0];
+    const p = { idle:[/idle/i,/wait/i,/stand/i,/normal/i], walk:[/walk/i,/run/i,/move/i], attack:[/skill.?01/i,/attack/i,/skill/i,/atk/i], die:[/die/i,/dead/i,/death/i] };
+    for (const re of (p[type]||[])) { const f = anims.find(a=>re.test(a)); if (f) return f; }
+    if (type==='idle') return anims[0];
+    if (type==='attack') return anims[1]||anims[0];
     return null;
 }
 
@@ -223,69 +172,72 @@ function createUnit(charIdx, side, x, y) {
     if (!spineData) return null;
 
     const spine = new PIXI.spine.Spine(spineData);
-    const scale = 0.12;
-    // Most of these Spine characters face LEFT by default.
-    // Heroes (left side): flip to face RIGHT (toward enemies) -> negative scaleX
-    // Enemies (right side): keep default LEFT facing (toward heroes) -> positive scaleX
-    if (side === 'hero') {
-        spine.scale.set(-scale, scale);
-    } else {
-        spine.scale.set(scale, scale);
-    }
+    // All chars face LEFT by default. Heroes flip to face RIGHT.
+    spine.scale.set(side==='hero' ? -SCALE : SCALE, SCALE);
     spine.x = x;
     spine.y = y;
     app.stage.addChild(spine);
 
-    const anims = spineData.animations.map(a => a.name);
-    const idleAnim = findAnim(anims, 'idle');
-    const walkAnim = findAnim(anims, 'walk') || idleAnim;
-    const atkAnim = findAnim(anims, 'attack') || idleAnim;
-    const dieAnim = findAnim(anims, 'die');
+    const anims = spineData.animations.map(a=>a.name);
+    const idleAnim = findAnim(anims,'idle');
+    const walkAnim = findAnim(anims,'walk') || idleAnim;
+    const atkAnim = findAnim(anims,'attack') || idleAnim;
+    const dieAnim = findAnim(anims,'die');
 
     if (idleAnim) try { spine.state.setAnimation(0, idleAnim, true); } catch(e){}
 
-    // HP bar
-    const hpBg = new PIXI.Graphics();
-    const hpFill = new PIXI.Graphics();
-    app.stage.addChild(hpBg);
-    app.stage.addChild(hpFill);
+    // HP bar container
+    const hpContainer = new PIXI.Container();
+    app.stage.addChild(hpContainer);
 
-    // Name label
-    const label = new PIXI.Text(def.name, { fontSize:9, fill: side==='hero'?0x4ecdc4:0xe94560, fontFamily:'Segoe UI' });
-    label.anchor.set(0.5, 1);
-    app.stage.addChild(label);
+    const isRanged = def.type === 'ranged';
+    const baseHp = side==='hero' ? 900 : 700;
 
-    const baseHp = side === 'hero' ? 800 : 600;
     const unit = {
-        spine, side, def, charIdx, anims,
+        spine, side, def, charIdx,
         animNames: { idle:idleAnim, walk:walkAnim, attack:atkAnim, die:dieAnim },
         hp: baseHp, maxHp: baseHp,
-        atk: 60 + Math.floor(Math.random()*30),
-        atkSpeed: 1.5 + Math.random()*0.5,
-        range: 80, moveSpeed: 80 + Math.random()*40,
-        x, y, atkTimer: Math.random()*0.5,
+        atk: isRanged ? 55 + Math.floor(Math.random()*15) : 70 + Math.floor(Math.random()*20),
+        atkSpeed: isRanged ? 1.8 : 1.3,
+        range: isRanged ? RANGED_RANGE : MELEE_RANGE,
+        moveSpeed: isRanged ? RANGED_SPEED : MELEE_SPEED,
+        isRanged,
+        x, y, atkTimer: Math.random()*0.8,
         alive: true, state: 'idle', dyingTimer: 0,
-        hpBg, hpFill, label
+        hpContainer
     };
     drawHp(unit);
     return unit;
 }
 
 function drawHp(u) {
-    const bw = 50, bh = 6;
-    const bx = u.x - bw/2, by = u.y - 80;
-    u.hpBg.clear();
-    u.hpFill.clear();
-    if (!u.alive && u.dyingTimer <= 0) { u.label.visible = false; return; }
-    u.hpBg.beginFill(0x1a1a1a).drawRoundedRect(bx-1, by-1, bw+2, bh+2, 3).endFill();
+    const c = u.hpContainer;
+    c.removeChildren();
+    if (!u.alive && u.dyingTimer <= 0) { c.visible = false; return; }
+    c.visible = true;
+
+    const bw = 52, bh = 7;
+    const bg = new PIXI.Graphics();
+    bg.beginFill(0x000000, 0.6).drawRoundedRect(-bw/2-1, -1, bw+2, bh+2, 3).endFill();
+    c.addChild(bg);
+
     const ratio = Math.max(0, u.hp / u.maxHp);
-    const color = u.side === 'hero' ? 0x44cc44 : 0xcc3333;
-    u.hpFill.beginFill(color).drawRoundedRect(bx, by, bw*ratio, bh, 2).endFill();
-    u.label.x = u.x;
-    u.label.y = by - 3;
+    const fill = new PIXI.Graphics();
+    const color = u.side==='hero' ? 0x22cc55 : 0xcc2222;
+    fill.beginFill(color).drawRoundedRect(-bw/2, 0, bw*ratio, bh, 2).endFill();
+    c.addChild(fill);
+
+    // Name
+    const label = new PIXI.Text(u.def.name, { fontSize:10, fill:0xffffff, fontFamily:'Segoe UI', fontWeight:'bold' });
+    label.anchor.set(0.5, 1);
+    label.y = -4;
+    c.addChild(label);
+
+    c.x = u.x;
+    c.y = u.y - 85;
 }
 
-// ============ SET ANIM STATE ============
+// ============ ANIM STATE ============
 function setUnitState(u, state) {
     if (u.state === state) return;
     u.state = state;
@@ -294,13 +246,11 @@ function setUnitState(u, state) {
     try {
         const loop = (state !== 'attack' && state !== 'die');
         u.spine.state.setAnimation(0, animName, loop);
-        if (state === 'attack') {
-            u.spine.state.addAnimation(0, u.animNames.idle, true, 0);
-        }
+        if (state === 'attack') u.spine.state.addAnimation(0, u.animNames.idle, true, 0);
     } catch(e) {}
 }
 
-// ============ BATTLE UPDATE ============
+// ============ BATTLE LOGIC ============
 function getTarget(unit) {
     let closest = null, minD = Infinity;
     for (const u of units) {
@@ -315,12 +265,7 @@ function updateUnit(u, dt) {
     if (!u.alive) {
         if (u.dyingTimer > 0) {
             u.dyingTimer -= dt;
-            if (u.dyingTimer <= 0) {
-                u.spine.alpha = 0.2;
-                u.hpBg.visible = false;
-                u.hpFill.visible = false;
-                u.label.visible = false;
-            }
+            if (u.dyingTimer <= 0) { u.spine.alpha = 0.15; u.hpContainer.visible = false; }
         }
         return;
     }
@@ -329,28 +274,26 @@ function updateUnit(u, dt) {
     if (!target) { setUnitState(u, 'idle'); return; }
 
     const dist = Math.abs(target.x - u.x);
+
     if (dist > u.range) {
-        // Move
+        // Move toward target
         const dir = target.x > u.x ? 1 : -1;
         u.x += dir * u.moveSpeed * dt;
         u.spine.x = u.x;
+        u.hpContainer.x = u.x;
         setUnitState(u, 'walk');
-        drawHp(u);
     } else {
-        // In range
+        // In range - attack
         if (u.atkTimer <= 0) {
             u.atkTimer = u.atkSpeed;
             setUnitState(u, 'attack');
-            // Damage
             const dmg = Math.round(u.atk * (0.85 + Math.random()*0.3));
             target.hp -= dmg;
-            log(`${u.def.name} → ${target.def.name} -${dmg}`, 'ldmg');
             if (target.hp <= 0) {
                 target.hp = 0;
                 target.alive = false;
-                target.dyingTimer = 1.2;
+                target.dyingTimer = 1.0;
                 setUnitState(target, 'die');
-                log(`${target.def.name} defeated!`, 'lkill');
             }
             drawHp(target);
         } else {
@@ -363,18 +306,14 @@ function updateUnit(u, dt) {
 let lastTime = 0;
 function gameLoop(time) {
     if (!battleRunning) return;
-    const rawDt = Math.min((time - lastTime) / 1000, 0.1);
+    const dt = Math.min((time - lastTime) / 1000, 0.1) * gameSpeed;
     lastTime = time;
-    const dt = rawDt * gameSpeed;
-
     for (const u of units) updateUnit(u, dt);
 
-    // Check end condition
-    const heroesAlive = units.filter(u => u.side==='hero' && u.alive).length;
-    const enemiesAlive = units.filter(u => u.side==='enemy' && u.alive).length;
+    const heroesAlive = units.filter(u=>u.side==='hero'&&u.alive).length;
+    const enemiesAlive = units.filter(u=>u.side==='enemy'&&u.alive).length;
     if (enemiesAlive === 0) { endBattle(true); return; }
     if (heroesAlive === 0) { endBattle(false); return; }
-
     requestAnimationFrame(gameLoop);
 }
 
@@ -382,9 +321,7 @@ function gameLoop(time) {
 function clearUnits() {
     for (const u of units) {
         if (u.spine.parent) app.stage.removeChild(u.spine);
-        if (u.hpBg.parent) app.stage.removeChild(u.hpBg);
-        if (u.hpFill.parent) app.stage.removeChild(u.hpFill);
-        if (u.label.parent) app.stage.removeChild(u.label);
+        if (u.hpContainer.parent) app.stage.removeChild(u.hpContainer);
     }
     units = [];
 }
@@ -392,25 +329,26 @@ function clearUnits() {
 function startStage(idx) {
     currentStage = idx;
     clearUnits();
-    logEl.innerHTML = '';
     const stage = STAGES[idx];
-
     const cw = app.renderer.width / (window.devicePixelRatio||1);
     const ch = app.renderer.height / (window.devicePixelRatio||1);
-    const groundY = ch * 0.78;
+    const groundY = ch * 0.72;
 
-    stageTitle.textContent = `Stage ${idx+1} / 5` + (stage.boss ? ' (BOSS)' : '');
-    log(`=== STAGE ${idx+1} ===`, 'lstage');
+    stageTitle.textContent = `Stage ${idx+1} / 5` + (stage.boss ? ' BOSS' : '');
 
-    // Heroes (left)
+    // Heroes (left side) - formation: back row ranged, front row melee
+    const heroPositions = [
+        { x: cw*0.18, y: groundY },
+        { x: cw*0.10, y: groundY - 30 },
+        { x: cw*0.10, y: groundY + 30 }
+    ];
     for (let i = 0; i < HERO_IDS.length; i++) {
-        const x = cw * 0.12 + i * 55;
-        const y = groundY + (i-1) * 20;
-        const u = createUnit(HERO_IDS[i], 'hero', x, y);
+        const pos = heroPositions[i];
+        const u = createUnit(HERO_IDS[i], 'hero', pos.x, pos.y);
         if (u) units.push(u);
     }
 
-    // Enemies (right)
+    // Enemies (right side)
     let enemyIndices = [];
     if (stage.boss) {
         enemyIndices = [0,1,2,3,4,5,6];
@@ -420,21 +358,21 @@ function startStage(idx) {
         }
     }
 
+    const cols = Math.ceil(enemyIndices.length / 3);
     for (let i = 0; i < enemyIndices.length; i++) {
         const col = Math.floor(i / 3);
         const row = i % 3;
-        const x = cw * 0.88 - col * 55;
-        const y = groundY + (row-1) * 25;
+        const rowCount = Math.min(3, enemyIndices.length - col*3);
+        const rowOffset = (rowCount - 1) * 25;
+        const x = cw*0.82 + col*60;
+        const y = groundY - rowOffset/2 + row*50;
         const u = createUnit(enemyIndices[i], 'enemy', x, y);
         if (u) {
-            if (stage.boss) { u.maxHp = Math.round(u.maxHp * 0.6); u.hp = u.maxHp; drawHp(u); }
+            if (stage.boss) { u.maxHp = Math.round(u.maxHp*0.5); u.hp = u.maxHp; drawHp(u); }
             units.push(u);
         }
     }
 
-    hudInfo.textContent = `Heroes: ${units.filter(u=>u.side==='hero').length} | Enemies: ${units.filter(u=>u.side==='enemy').length}`;
-
-    // Start loop
     battleRunning = true;
     lastTime = performance.now();
     requestAnimationFrame(gameLoop);
@@ -442,36 +380,34 @@ function startStage(idx) {
 
 function endBattle(won) {
     battleRunning = false;
-    log(won ? 'VICTORY!' : 'DEFEATED...', 'lstage');
-
     setTimeout(() => {
         ovEl.classList.remove('hidden');
         if (won && currentStage < STAGES.length - 1) {
-            ovTitle.textContent = '🏆 Stage Clear!';
-            ovText.textContent = `Stage ${currentStage+1} cleared!`;
+            ovTitle.textContent = 'Victory!';
+            ovText.textContent = `Stage ${currentStage+1} cleared`;
             ovBtn.textContent = 'NEXT STAGE';
             ovBtn.style.display = '';
             ovBtn.onclick = () => { ovEl.classList.add('hidden'); startStage(currentStage+1); };
         } else if (won) {
-            ovTitle.textContent = '🎉 ALL CLEAR!';
-            ovText.textContent = 'You defeated all 5 stages! Congratulations!';
+            ovTitle.textContent = 'All Stages Cleared!';
+            ovText.textContent = 'Congratulations!';
             ovBtn.textContent = 'PLAY AGAIN';
             ovBtn.style.display = '';
             ovBtn.onclick = () => { ovEl.classList.add('hidden'); startStage(0); };
         } else {
-            ovTitle.textContent = '💀 Defeated';
-            ovText.textContent = `Fell at Stage ${currentStage+1}. Try again!`;
+            ovTitle.textContent = 'Defeated';
+            ovText.textContent = `Stage ${currentStage+1}`;
             ovBtn.textContent = 'RETRY';
             ovBtn.style.display = '';
             ovBtn.onclick = () => { ovEl.classList.add('hidden'); startStage(currentStage); };
         }
-    }, 1200);
+    }, 1000);
 }
 
 // ============ SPEED BUTTONS ============
 document.querySelectorAll('.speed-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-        document.querySelectorAll('.speed-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.speed-btn').forEach(b=>b.classList.remove('active'));
         btn.classList.add('active');
         gameSpeed = parseInt(btn.dataset.speed);
     });
@@ -479,13 +415,11 @@ document.querySelectorAll('.speed-btn').forEach(btn => {
 
 // ============ BOOT ============
 initPixi();
-
-ovBtn.style.display = 'none';
 preloadAll().then(ok => {
     if (ok) {
-        ovTitle.textContent = '⚔️ Auto Battle';
-        ovText.textContent = '3 Heroes vs Enemies — 5 Stages';
-        ovBtn.textContent = 'START BATTLE';
+        ovTitle.textContent = 'Auto Battle';
+        ovText.textContent = '3 Heroes vs Enemies';
+        ovBtn.textContent = 'START';
         ovBtn.style.display = '';
         ovBtn.onclick = () => { ovEl.classList.add('hidden'); startStage(0); };
     }
