@@ -82,6 +82,7 @@
 'use strict';
 
 const CHARACTERS = [
+    // === Original Characters ===
     { id:'char001', name:'Cream Arcade', info:'Spine 3.6 JSON',
       dataFile:'assets/char001/cream_arcade_000.json',
       atlasFile:'assets/char001/cream_arcade_000.atlas', format:'json36' },
@@ -102,7 +103,52 @@ const CHARACTERS = [
       atlasFile:'assets/char006/crew110026.atlas', format:'skel36' },
     { id:'char007', name:'Crew 130004', info:'Spine 3.6 Binary',
       dataFile:'assets/char007/crew130004.skel',
-      atlasFile:'assets/char007/crew130004.atlas', format:'skel36' }
+      atlasFile:'assets/char007/crew130004.atlas', format:'skel36' },
+
+    // === New Heroes (Spine 3.8 JSON) ===
+    { id:'new001', name:'Hero 001', info:'Spine 3.8 JSON',
+      dataFile:'assets/characternew/001/action.json',
+      atlasFile:'assets/characternew/001/action.atlas', format:'json38' },
+    { id:'new002', name:'Hero 002', info:'Spine 3.8 JSON',
+      dataFile:'assets/characternew/002/action.json',
+      atlasFile:'assets/characternew/002/action.atlas', format:'json38' },
+    { id:'new003', name:'H30058', info:'Spine 3.8 JSON',
+      dataFile:'assets/characternew/003/H30058.json',
+      atlasFile:'assets/characternew/003/H30058.atlas', format:'json38' },
+    { id:'new004', name:'H30107', info:'Spine 3.8 JSON',
+      dataFile:'assets/characternew/004/H30107.json',
+      atlasFile:'assets/characternew/004/H30107.atlas', format:'json38' },
+
+    // === Monsters (Spine 3.8 JSON) ===
+    { id:'monster001', name:'ZombiePon', info:'Spine 3.8 JSON',
+      dataFile:'assets/characternew/monster_folder/monster_001/NPC_ZombiePon_A.json',
+      atlasFile:'assets/characternew/monster_folder/monster_001/NPC_ZombiePon_A.atlas', format:'json38' },
+    { id:'monster002', name:'Smoky', info:'Spine 3.8 JSON',
+      dataFile:'assets/characternew/monster_folder/monster_002/Monster_Smoky_A.json',
+      atlasFile:'assets/characternew/monster_folder/monster_002/Monster_Smoky_A.atlas', format:'json38' },
+    { id:'monster003', name:'Nami', info:'Spine 3.8 JSON',
+      dataFile:'assets/characternew/monster_folder/monster_003/Monster_Nami_A.json',
+      atlasFile:'assets/characternew/monster_folder/monster_003/Monster_Nami_A.atlas', format:'json38' },
+    { id:'monster004', name:'FloatingStonehead', info:'Spine 3.8 JSON',
+      dataFile:'assets/characternew/monster_folder/monster_004/Monster_FloatingStonehead_A.json',
+      atlasFile:'assets/characternew/monster_folder/monster_004/Monster_FloatingStonehead_A.atlas', format:'json38' },
+
+    // === Skills/Effects (Spine 3.8 JSON) ===
+    { id:'skill001', name:'Skill 001', info:'Spine 3.8 JSON',
+      dataFile:'assets/characternew/skill_folder/skill_001/action.json',
+      atlasFile:'assets/characternew/skill_folder/skill_001/action.atlas', format:'json38' },
+    { id:'skill002', name:'Skill 002', info:'Spine 3.8 JSON',
+      dataFile:'assets/characternew/skill_folder/skill_002/action.json',
+      atlasFile:'assets/characternew/skill_folder/skill_002/action.atlas', format:'json38' },
+    { id:'skill003', name:'FX 4032', info:'Spine 3.8 JSON',
+      dataFile:'assets/characternew/skill_folder/skill_003/fx_4032.json',
+      atlasFile:'assets/characternew/skill_folder/skill_003/fx_4032.atlas', format:'json38' },
+    { id:'skill004', name:'Orochimaru', info:'Spine 3.8 JSON',
+      dataFile:'assets/characternew/skill_folder/skill_004/orochimaru01.json',
+      atlasFile:'assets/characternew/skill_folder/skill_004/orochimaru01.atlas', format:'json38' },
+    { id:'skill005', name:'XXM 513', info:'Spine 3.8 JSON',
+      dataFile:'assets/characternew/skill_folder/skill_005/xxm_513_bs.json',
+      atlasFile:'assets/characternew/skill_folder/skill_005/xxm_513_bs.atlas', format:'json38' }
 ];
 
 let app = null;
@@ -132,7 +178,24 @@ function initApp() {
 }
 
 function buildSidebar() {
+    let lastCategory = '';
     CHARACTERS.forEach((ch, idx) => {
+        // Add category headers
+        let category = '';
+        if (ch.id.startsWith('char')) category = 'Original';
+        else if (ch.id.startsWith('new')) category = 'New Heroes';
+        else if (ch.id.startsWith('monster')) category = 'Monsters';
+        else if (ch.id.startsWith('skill')) category = 'Skills/FX';
+
+        if (category !== lastCategory) {
+            const header = document.createElement('div');
+            header.style.cssText = 'color:#e94560;font-size:0.7rem;font-weight:bold;padding:8px 4px 4px;text-transform:uppercase;letter-spacing:1px;border-top:1px solid #0f3460;margin-top:6px;';
+            if (lastCategory === '') header.style.borderTop = 'none';
+            header.textContent = category;
+            sidebar.appendChild(header);
+            lastCategory = category;
+        }
+
         const btn = document.createElement('button');
         btn.className = 'char-btn';
         btn.innerHTML = '<div class="char-name">'+ch.name+'</div><div class="char-info">'+ch.info+'</div>';
@@ -175,7 +238,7 @@ async function loadCharacter(ch) {
 
     // 2. Get skeleton JSON data
     let jsonData;
-    if (ch.format === 'json36') {
+    if (ch.format === 'json36' || ch.format === 'json38') {
         const resp = await fetch(ch.dataFile);
         if (!resp.ok) throw new Error('JSON fetch failed');
         jsonData = await resp.json();
@@ -199,7 +262,7 @@ async function loadCharacter(ch) {
         return binaryParser.readSkeletonData(atlas, rawData);
     }
 
-    // For JSON-based data (json36 and skel36 converted to json):
+    // For JSON-based data (json36, json38, and skel36 converted to json):
     // Parse atlas, then use JSON parser
     const atlas = await parseAtlas(atlasText, ch);
     const parser = new PIXI.spine.SpineParser();
