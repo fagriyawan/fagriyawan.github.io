@@ -1,13 +1,12 @@
 <?php
 /**
- * Safe CYSP Batch Converter - Princess Connect Re:Dive
- * Gabung SEMUA animasi (common + battle) ke 1 JSON per character
+ * Safe CYSP Batch Converter v2 - Princess Connect Re:Dive
+ * Dengan auto-detect weapon type dari classMap.json
+ * Setiap character pakai common battle yang sesuai senjatanya
  * 
  * Cara pakai:
  * 1. cd ~/priconne_convert
  * 2. php safe_convert.php
- * 
- * Output: /storage/emulated/0/Download/priconne_output/{id}/{id}.json + .atlas + .png
  */
 error_reporting(E_ALL & ~E_DEPRECATED & ~E_WARNING & ~E_NOTICE);
 
@@ -16,6 +15,7 @@ $INPUT_DIR = $BASE_DIR . '/input';
 $OUTPUT_DIR = '/storage/emulated/0/Download/priconne_output';
 $BASE_SKEL = $BASE_DIR . '/000000_CHARA_BASE.cysp';
 $CONVERTER = $BASE_DIR . '/converter.php';
+$CLASSMAP_FILE = $BASE_DIR . '/classMap.json';
 
 // === CHECK ===
 if (!file_exists($CONVERTER)) {
@@ -30,19 +30,29 @@ if (!is_dir($INPUT_DIR)) {
 }
 if (!is_dir($OUTPUT_DIR)) mkdir($OUTPUT_DIR, 0755, true);
 
+// === LOAD CLASSMAP ===
+$classMap = [];
+if (file_exists($CLASSMAP_FILE)) {
+    $classMap = json_decode(file_get_contents($CLASSMAP_FILE), true);
+    echo "ClassMap loaded: " . count($classMap) . " characters\n";
+} else {
+    echo "WARNING: classMap.json not found! All characters will use 04_COMMON_BATTLE.\n";
+    echo "Run: curl -so classMap.json 'https://redive.estertion.win/spine/classMap.json'\n\n";
+}
+
 // === LOAD ===
 require_once $CONVERTER;
 
-echo "=== SAFE CYSP CONVERTER (Full Animations) ===\n\n";
+echo "=== SAFE CYSP CONVERTER v2 (Auto Weapon Type) ===\n\n";
 
 // Load base skeleton
 echo "Loading base skeleton...\n";
 $baseSkel = readCyspSkeleton($BASE_SKEL);
 echo "Base: " . count($baseSkel['bone']) . " bones, " . count($baseSkel['slot']) . " slots\n\n";
 
-// Load ALL common animations (idle, run, die, etc)
-$commonAnims = [];
-$commonFiles = [
+// Load shared common animations (idle, run, pose - same for all)
+$sharedAnims = [];
+$sharedFiles = [
     'input/000000_DEAR.cysp',
     'input/000000_NO_WEAPON.cysp',
     'input/000000_POSING.cysp',
@@ -51,108 +61,110 @@ $commonFiles = [
     'input/000000_SMILE.cysp',
 ];
 
-echo "Loading common animations...\n";
-foreach ($commonFiles as $cf) {
+echo "Loading shared animations...\n";
+foreach ($sharedFiles as $cf) {
     $fullPath = $BASE_DIR . '/' . $cf;
     if (!file_exists($fullPath)) {
-        echo "  [MISS] $cf - not found, skipping\n";
+        echo "  [MISS] $cf\n";
         continue;
     }
     try {
         $anims = @readCyspAnimation($fullPath, $baseSkel);
         if ($anims && is_array($anims)) {
-            $commonAnims = array_merge($commonAnims, $anims);
+            $sharedAnims = array_merge($sharedAnims, $anims);
             echo "  [OK] " . basename($cf) . " - " . count($anims) . " animations\n";
         }
     } catch (\Throwable $e) {
         echo "  [ERR] " . basename($cf) . " - " . $e->getMessage() . "\n";
     }
 }
-echo "Total common animations: " . count($commonAnims) . "\n\n";
+echo "Total shared animations: " . count($sharedAnims) . "\n\n";
 
-// Also try 04_COMMON_BATTLE.cysp
-$commonBattle = $INPUT_DIR . '/04_COMMON_BATTLE.cysp';
-if (file_exists($commonBattle)) {
+// Pre-load all COMMON_BATTLE files by weapon type
+echo "Loading weapon-type common battles...\n";
+$commonBattleCache = [];
+$commonBattleFiles = glob($INPUT_DIR . '/*_COMMON_BATTLE.cysp');
+foreach ($commonBattleFiles as $cbf) {
+    $fname = basename($cbf, '_COMMON_BATTLE.cysp');
+    $typeNum = ltrim($fname, '0') ?: '0';
     try {
-        $anims = @readCyspAnimation($commonBattle, $baseSkel);
+        $anims = @readCyspAnimation($cbf, $baseSkel);
         if ($anims && is_array($anims)) {
-            $commonAnims = array_merge($commonAnims, $anims);
-            echo "Loaded 04_COMMON_BATTLE.cysp: " . count($anims) . " animations\n\n";
+            $commonBattleCache[$typeNum] = $anims;
+            echo "  [OK] type $typeNum (" . basename($cbf) . ") - " . count($anims) . " anims\n";
         }
     } catch (\Throwable $e) {
-        echo "04_COMMON_BATTLE.cysp error: " . $e->getMessage() . "\n\n";
+        echo "  [ERR] type $typeNum - " . $e->getMessage() . "\n";
     }
 }
+echo "Loaded " . count($commonBattleCache) . " weapon types\n\n";
 
-// === CONVERT CHARACTERS ===
+// === HELPER: Get weapon type ===
+function getWeaponType($charId, $classMap) {
+    $prefix4 = substr($charId, 0, 4);
+    $baseId = $prefix4 . '01';
+    if (isset($classMap[$baseId])) return $classMap[$baseId]['type'];
+    if (isset($classMap[$charId])) return $classMap[$charId]['type'];
+    return '4'; // fallback
+}
+
+// === CONVERT ===
 $atlasFiles = glob($INPUT_DIR . '/*.atlas');
 echo "Found " . count($atlasFiles) . " characters to convert.\n\n";
 
-$success = 0;
-$failed = 0;
-$skipped = 0;
+$success = 0; $failed = 0; $skipped = 0;
 
 foreach ($atlasFiles as $atlasFile) {
     $basename = pathinfo($atlasFile, PATHINFO_FILENAME);
-    
-    // Skip common files
     if (strpos($basename, '000000') === 0) continue;
     
     $pngFile = $INPUT_DIR . '/' . $basename . '.png';
     if (!file_exists($pngFile)) { $skipped++; continue; }
 
-    // Skip if already converted
     $outDir = $OUTPUT_DIR . '/' . $basename;
-    if (file_exists($outDir . '/' . $basename . '.json')) {
-        $skipped++;
-        continue;
-    }
+    if (file_exists($outDir . '/' . $basename . '.json')) { $skipped++; continue; }
 
-    // Find battle cysp (pattern: 100311 -> 100301_BATTLE.cysp)
+    // Find battle cysp
     $cyspFile = null;
     $prefix4 = substr($basename, 0, 4);
-    
-    // Try: {prefix4}01_BATTLE.cysp
     $tryFile = $INPUT_DIR . '/' . $prefix4 . '01_BATTLE.cysp';
     if (file_exists($tryFile)) $cyspFile = $tryFile;
-    
-    // Try exact match
     if (!$cyspFile) {
         $tryFile = $INPUT_DIR . '/' . $basename . '_BATTLE.cysp';
         if (file_exists($tryFile)) $cyspFile = $tryFile;
     }
-    
-    // Try any matching prefix
     if (!$cyspFile) {
         $matches = glob($INPUT_DIR . '/' . $prefix4 . '*_BATTLE.cysp');
-        if (!empty($matches)) {
-            sort($matches);
-            $cyspFile = end($matches);
-        }
+        if (!empty($matches)) { sort($matches); $cyspFile = end($matches); }
     }
+    if (!$cyspFile) { echo "[SKIP] $basename - no cysp\n"; $skipped++; continue; }
 
-    if (!$cyspFile) {
-        echo "[SKIP] $basename - no matching .cysp\n";
-        $skipped++;
-        continue;
-    }
-
-    echo "[CONVERT] $basename ... ";
+    $weaponType = getWeaponType($basename, $classMap);
+    echo "[CONVERT] $basename (type:$weaponType) ... ";
 
     try {
         $skel = $baseSkel;
 
-        // Read battle animations
+        // 1. Shared animations (same for all)
+        $allAnims = $sharedAnims;
+
+        // 2. Weapon-specific common battle
+        if (isset($commonBattleCache[$weaponType])) {
+            $allAnims = array_merge($allAnims, $commonBattleCache[$weaponType]);
+        } elseif (isset($commonBattleCache['4'])) {
+            $allAnims = array_merge($allAnims, $commonBattleCache['4']);
+        }
+
+        // 3. Character-specific skills
         $battleAnims = @readCyspAnimation($cyspFile, $skel);
-        if (!$battleAnims || !is_array($battleAnims)) $battleAnims = [];
+        if ($battleAnims && is_array($battleAnims)) {
+            $allAnims = array_merge($allAnims, $battleAnims);
+        }
 
-        // Merge: common + battle
-        $skel['animation'] = array_merge($commonAnims, $battleAnims);
-
-        // Convert to JSON
+        $skel['animation'] = $allAnims;
         $json = processToJson($skel);
 
-        // Clean up for pixi-spine compatibility
+        // Clean up
         if (isset($json['skins'])) {
             foreach ($json['skins'] as &$slots) {
                 foreach ($slots as &$attachments) {
@@ -167,16 +179,14 @@ foreach ($atlasFiles as $atlasFile) {
             $json['skeleton']['spine'] = $json['skeleton']['version'] ?? '3.6.39';
         }
 
-        // Output
         if (!is_dir($outDir)) mkdir($outDir, 0755, true);
         file_put_contents($outDir . '/' . $basename . '.json', json_encode($json, JSON_UNESCAPED_SLASHES));
         copy($atlasFile, $outDir . '/' . $basename . '.atlas');
         copy($pngFile, $outDir . '/' . $basename . '.png');
 
         $animCount = count($json['animations']);
-        echo "OK ($animCount animations)\n";
+        echo "OK ($animCount anims)\n";
         $success++;
-
     } catch (\Throwable $e) {
         echo "FAILED: " . $e->getMessage() . "\n";
         $failed++;
