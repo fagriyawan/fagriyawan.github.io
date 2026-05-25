@@ -1,0 +1,125 @@
+
+Monster_Smoky_A.png
+size: 466,87
+format: RGBA8888
+filter: Linear,Linear
+repeat: none
+Arrow
+  rotate: false
+  xy: 391, 29
+  size: 9, 56
+  orig: 11, 58
+  offset: 1, 1
+  index: -1
+F/AccA
+  rotate: false
+  xy: 453, 62
+  size: 10, 23
+  orig: 12, 25
+  offset: 1, 1
+  index: -1
+F/Body
+  rotate: true
+  xy: 153, 23
+  size: 62, 53
+  orig: 64, 56
+  offset: 1, 1
+  index: -1
+F/Face
+  rotate: false
+  xy: 2, 3
+  size: 84, 84
+  orig: 84, 84
+  offset: 0, 0
+  index: -1
+F/Larm
+  rotate: false
+  xy: 266, 55
+  size: 27, 30
+  orig: 29, 32
+  offset: 1, 1
+  index: -1
+F/Leye
+  rotate: false
+  xy: 2, 77
+  size: 8, 8
+  orig: 10, 10
+  offset: 1, 1
+  index: -1
+F/Lfoot
+  rotate: false
+  xy: 422, 66
+  size: 14, 19
+  orig: 16, 21
+  offset: 1, 1
+  index: -1
+F/Lhand
+  rotate: true
+  xy: 317, 64
+  size: 21, 26
+  orig: 23, 28
+  offset: 1, 1
+  index: -1
+F/Lip
+  rotate: true
+  xy: 295, 49
+  size: 36, 20
+  orig: 38, 22
+  offset: 1, 1
+  index: -1
+F/Lleg
+  rotate: true
+  xy: 208, 52
+  size: 33, 28
+  orig: 36, 30
+  offset: 1, 1
+  index: -1
+F/Rarm
+  rotate: false
+  xy: 238, 52
+  size: 26, 33
+  orig: 29, 35
+  offset: 2, 1
+  index: -1
+F/Reye
+  rotate: false
+  xy: 68, 77
+  size: 13, 8
+  orig: 15, 10
+  offset: 1, 1
+  index: -1
+F/Rfoot
+  rotate: false
+  xy: 438, 65
+  size: 13, 20
+  orig: 15, 22
+  offset: 1, 1
+  index: -1
+F/Rhand
+  rotate: false
+  xy: 402, 57
+  size: 18, 28
+  orig: 20, 31
+  offset: 1, 2
+  index: -1
+F/Rleg
+  rotate: 270
+  xy: 362, 55
+  size: 32, 26
+  orig: 32, 27
+  offset: 0, 1
+  index: -1
+F/Tail
+  rotate: true
+  xy: 317, 35
+  size: 50, 44
+  orig: 50, 44
+  offset: 0, 0
+  index: -1
+F/Weapon
+  rotate: true
+  xy: 86, 13
+  size: 72, 65
+  orig: 74, 67
+  offset: 1, 1
+  index: -1

@@ -1,0 +1,83 @@
+
+xxm_513_bs.png
+size: 948,505
+format: RGBA8888
+filter: Linear,Linear
+repeat: none
+dian_bai
+  rotate: false
+  xy: 638, 200
+  size: 51, 49
+  orig: 60, 60
+  offset: 5, 6
+  index: -1
+hz/hz_bao1
+  rotate: false
+  xy: 365, 6
+  size: 271, 198
+  orig: 360, 260
+  offset: 45, 31
+  index: -1
+hz/p1_00
+  rotate: true
+  xy: 759, 64
+  size: 133, 168
+  orig: 149, 198
+  offset: 7, 15
+  index: -1
+hz/p2_00
+  rotate: true
+  xy: 638, 6
+  size: 191, 119
+  orig: 224, 147
+  offset: 19, 14
+  index: -1
+hz/p3_00
+  rotate: false
+  xy: 856, 199
+  size: 60, 213
+  orig: 87, 248
+  offset: 14, 18
+  index: -1
+hz/p4_00
+  rotate: false
+  xy: 2, 2
+  size: 219, 179
+  orig: 266, 212
+  offset: 26, 15
+  index: -1
+hz/p5_00
+  rotate: false
+  xy: 223, 8
+  size: 140, 173
+  orig: 162, 194
+  offset: 12, 9
+  index: -1
+quan
+  rotate: false
+  xy: 612, 251
+  size: 242, 252
+  orig: 242, 252
+  offset: 0, 0
+  index: -1
+quan_lv
+  rotate: false
+  xy: 316, 206
+  size: 294, 297
+  orig: 350, 346
+  offset: 30, 24
+  index: -1
+se_nv
+  rotate: true
+  xy: 2, 183
+  size: 320, 312
+  orig: 320, 320
+  offset: 0, 3
+  index: -1
+xing
+  rotate: false
+  xy: 856, 414
+  size: 90, 89
+  orig: 117, 113
+  offset: 13, 12
+  index: -1

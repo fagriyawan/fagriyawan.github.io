@@ -1,0 +1,97 @@
+
+NPC_ZombiePon_A.png
+size: 264,264
+format: RGBA8888
+filter: Linear,Linear
+repeat: none
+A/BandageA
+  rotate: true
+  xy: 2, 143
+  size: 42, 63
+  orig: 42, 63
+  offset: 0, 0
+  index: -1
+A/BandageB
+  rotate: true
+  xy: 89, 159
+  size: 54, 73
+  orig: 54, 73
+  offset: 0, 0
+  index: -1
+A/Body
+  rotate: false
+  xy: 167, 188
+  size: 74, 72
+  orig: 74, 72
+  offset: 0, 0
+  index: -1
+A/Face
+  rotate: false
+  xy: 2, 187
+  size: 85, 73
+  orig: 85, 73
+  offset: 0, 0
+  index: -1
+A/Larm
+  rotate: false
+  xy: 214, 157
+  size: 46, 29
+  orig: 46, 29
+  offset: 0, 0
+  index: -1
+A/Lear
+  rotate: true
+  xy: 67, 119
+  size: 38, 40
+  orig: 38, 40
+  offset: 0, 0
+  index: -1
+A/Lleg
+  rotate: true
+  xy: 2, 115
+  size: 26, 36
+  orig: 26, 36
+  offset: 0, 0
+  index: -1
+A/Mouth
+  rotate: false
+  xy: 243, 244
+  size: 17, 16
+  orig: 17, 16
+  offset: 0, 0
+  index: -1
+A/Rarm
+  rotate: false
+  xy: 214, 122
+  size: 42, 33
+  orig: 42, 33
+  offset: 0, 0
+  index: -1
+A/Rear
+  rotate: false
+  xy: 164, 138
+  size: 48, 48
+  orig: 48, 48
+  offset: 0, 0
+  index: -1
+A/Rleg
+  rotate: true
+  xy: 109, 130
+  size: 27, 36
+  orig: 27, 36
+  offset: 0, 0
+  index: -1
+A/Tail
+  rotate: false
+  xy: 89, 215
+  size: 76, 45
+  orig: 76, 45
+  offset: 0, 0
+  index: -1
+A/Tongue
+  rotate: true
+  xy: 243, 229
+  size: 13, 16
+  orig: 13, 16
+  offset: 0, 0
+  index: -1

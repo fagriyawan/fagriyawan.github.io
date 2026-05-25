@@ -1,0 +1,20 @@
+
+Monster_FloatingStonehead_A.png
+size: 273,192
+format: RGBA8888
+filter: Linear,Linear
+repeat: none
+D/Face
+  rotate: false
+  xy: 2, 3
+  size: 187, 187
+  orig: 187, 187
+  offset: 0, 0
+  index: -1
+D/Lip
+  rotate: false
+  xy: 191, 98
+  size: 80, 92
+  orig: 80, 92
+  offset: 0, 0
+  index: -1

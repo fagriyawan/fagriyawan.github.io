@@ -1,0 +1,118 @@
+
+fx_4032.png
+size: 136,1144
+format: RGBA8888
+filter: Linear,Linear
+repeat: none
+Hit_04
+  rotate: false
+  xy: 2, 1012
+  size: 128, 128
+  orig: 128, 128
+  offset: 0, 0
+  index: -1
+blood01/blood00
+  rotate: false
+  xy: 2, 296
+  size: 64, 64
+  orig: 64, 64
+  offset: 0, 0
+  index: -1
+blood01/blood01
+  rotate: false
+  xy: 68, 296
+  size: 64, 64
+  orig: 64, 64
+  offset: 0, 0
+  index: -1
+blood01/blood02
+  rotate: false
+  xy: 2, 230
+  size: 64, 64
+  orig: 64, 64
+  offset: 0, 0
+  index: -1
+blood01/blood03
+  rotate: false
+  xy: 68, 230
+  size: 64, 64
+  orig: 64, 64
+  offset: 0, 0
+  index: -1
+blood01/blood04
+  rotate: false
+  xy: 2, 164
+  size: 64, 64
+  orig: 64, 64
+  offset: 0, 0
+  index: -1
+blood01/blood05
+  rotate: false
+  xy: 68, 164
+  size: 64, 64
+  orig: 64, 64
+  offset: 0, 0
+  index: -1
+blood01/blood06
+  rotate: false
+  xy: 2, 98
+  size: 64, 64
+  orig: 64, 64
+  offset: 0, 0
+  index: -1
+blood01/blood07
+  rotate: false
+  xy: 68, 98
+  size: 64, 64
+  orig: 64, 64
+  offset: 0, 0
+  index: -1
+blood01/blood08
+  rotate: false
+  xy: 2, 32
+  size: 64, 64
+  orig: 64, 64
+  offset: 0, 0
+  index: -1
+hit01/02
+  rotate: false
+  xy: 2, 882
+  size: 128, 128
+  orig: 128, 128
+  offset: 0, 0
+  index: -1
+hit_01/02
+  rotate: false
+  xy: 2, 752
+  size: 128, 128
+  orig: 128, 128
+  offset: 0, 0
+  index: -1
+hit_01/03
+  rotate: false
+  xy: 2, 622
+  size: 128, 128
+  orig: 128, 128
+  offset: 0, 0
+  index: -1
+hit_01/04
+  rotate: false
+  xy: 2, 492
+  size: 128, 128
+  orig: 128, 128
+  offset: 0, 0
+  index: -1
+slash_01
+  rotate: false
+  xy: 2, 362
+  size: 128, 128
+  orig: 128, 128
+  offset: 0, 0
+  index: -1
+slash_02
+  rotate: false
+  xy: 2, 2
+  size: 114, 28
+  orig: 114, 28
+  offset: 0, 0
+  index: -1
