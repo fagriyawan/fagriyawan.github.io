@@ -164,6 +164,21 @@ foreach ($atlasFiles as $atlasFile) {
         $skel['animation'] = $allAnims;
         $json = processToJson($skel);
 
+        // Filter: hanya simpan animasi yang dibutuhkan
+        if (isset($json['animations'])) {
+            $keepPatterns = ['idle', 'die', 'attack', 'damage', 'joy_short', 'run', 'skill0', 'skill1', 'skill2', 'skill_evolution'];
+            $filtered = [];
+            foreach ($json['animations'] as $animName => $animData) {
+                foreach ($keepPatterns as $pattern) {
+                    if (stripos($animName, $pattern) !== false) {
+                        $filtered[$animName] = $animData;
+                        break;
+                    }
+                }
+            }
+            $json['animations'] = $filtered;
+        }
+
         // Clean up
         if (isset($json['skins'])) {
             foreach ($json['skins'] as &$slots) {
