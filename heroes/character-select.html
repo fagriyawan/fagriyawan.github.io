@@ -383,8 +383,12 @@ function displaySpine(spineData) {
     currentSpine = spineObj;
 
     // Ensure skeleton world transform is computed before positioning
-    spineObj.skeleton.updateWorldTransform();
-    spineObj.update(0);
+    try {
+        spineObj.skeleton.updateWorldTransform();
+        spineObj.update(0);
+    } catch(e) {
+        console.warn('Initial update failed:', e.message);
+    }
 
     app.stage.addChild(spineObj);
     positionSpine(spineObj);
@@ -395,6 +399,9 @@ function displaySpine(spineData) {
     let defaultAnim = anims.find(a => /idle|wait|stand/i.test(a)) || anims[0];
     if (defaultAnim) playAnim(spineObj, defaultAnim);
     buildAnimButtons(spineObj, anims, defaultAnim);
+
+    // Re-position after first frame renders (fixes bounds issues)
+    setTimeout(() => { if (currentSpine === spineObj) positionSpine(spineObj); }, 100);
 }
 
 function positionSpine(spineObj) {
@@ -406,7 +413,7 @@ function positionSpine(spineObj) {
     try {
         spineObj.skeleton.updateWorldTransform();
         const bounds = spineObj.getLocalBounds();
-        if (bounds.width > 0 && bounds.height > 0 && isFinite(bounds.width)) {
+        if (bounds.width > 0 && bounds.height > 0 && isFinite(bounds.width) && isFinite(bounds.height)) {
             bw = bounds.width;
             bh = bounds.height;
         }
@@ -414,10 +421,14 @@ function positionSpine(spineObj) {
         console.warn('getBounds failed, using defaults:', e.message);
     }
 
-    const scale = Math.min((cw * 0.6) / bw, (ch * 0.65) / bh, 1.5);
+    // Clamp to prevent too large or too small scaling
+    const maxScale = 2.0;
+    const minScale = 0.2;
+    let scale = Math.min((cw * 0.7) / bw, (ch * 0.55) / bh, maxScale);
+    scale = Math.max(scale, minScale);
     spineObj.scale.set(scale);
     spineObj.x = cw / 2;
-    spineObj.y = ch / 2 + (bh * scale) * 0.25;
+    spineObj.y = ch * 0.55;
 }
 
 function playAnim(spineObj, animName) {

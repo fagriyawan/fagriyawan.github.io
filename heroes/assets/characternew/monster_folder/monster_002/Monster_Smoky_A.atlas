@@ -103,7 +103,7 @@ F/Rhand
   offset: 1, 2
   index: -1
 F/Rleg
-  rotate: 270
+  rotate: true
   xy: 362, 55
   size: 32, 26
   orig: 32, 27
