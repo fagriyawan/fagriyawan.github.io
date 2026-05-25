@@ -12,62 +12,143 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             overflow: hidden;
             height: 100vh;
+            height: 100dvh;
         }
         #header {
             text-align: center;
-            padding: 12px;
+            padding: 10px;
             background: linear-gradient(135deg, #16213e, #0f3460);
             border-bottom: 2px solid #e94560;
+            position: relative;
         }
         #header h1 {
-            font-size: 1.4rem;
+            font-size: 1.2rem;
             color: #e94560;
             text-shadow: 0 0 10px rgba(233,69,96,0.5);
         }
-        #main { display: flex; height: calc(100vh - 56px); }
+        #menu-toggle {
+            display: none;
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: #0f3460;
+            border: 1px solid #e94560;
+            color: #eee;
+            padding: 6px 10px;
+            border-radius: 4px;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+        #main { display: flex; height: calc(100vh - 50px); height: calc(100dvh - 50px); }
         #sidebar {
             width: 200px;
             background: #16213e;
             padding: 10px;
             overflow-y: auto;
             border-right: 1px solid #0f3460;
+            transition: transform 0.3s ease;
+            z-index: 10;
         }
         .char-btn {
             display: block; width: 100%;
-            padding: 10px 12px; margin-bottom: 6px;
+            padding: 8px 10px; margin-bottom: 5px;
             background: #0f3460; color: #eee;
             border: 1px solid #1a1a2e;
             border-radius: 6px; cursor: pointer;
-            font-size: 0.85rem; transition: all 0.2s;
+            font-size: 0.8rem; transition: all 0.2s;
             text-align: left;
         }
         .char-btn:hover { background: #1a4080; border-color: #e94560; }
         .char-btn.active { background: #e94560; color: #fff; }
         .char-btn .char-name { font-weight: bold; }
-        .char-btn .char-info { font-size: 0.7rem; opacity: 0.7; margin-top: 2px; }
+        .char-btn .char-info { font-size: 0.65rem; opacity: 0.7; margin-top: 2px; }
         #canvas-area {
             flex: 1; position: relative;
             display: flex; align-items: center; justify-content: center;
+            overflow: hidden;
         }
         #controls {
-            position: absolute; bottom: 15px; left: 50%;
-            transform: translateX(-50%);
-            display: flex; gap: 8px; flex-wrap: wrap;
-            justify-content: center; max-width: 90%;
+            position: absolute; bottom: 0; left: 0; right: 0;
+            display: flex; gap: 6px; flex-wrap: nowrap;
+            overflow-x: auto; overflow-y: hidden;
+            padding: 10px 12px;
+            background: linear-gradient(transparent, rgba(26,26,46,0.95) 30%);
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: thin;
+            scrollbar-color: #e94560 #16213e;
         }
+        #controls::-webkit-scrollbar { height: 4px; }
+        #controls::-webkit-scrollbar-track { background: #16213e; }
+        #controls::-webkit-scrollbar-thumb { background: #e94560; border-radius: 2px; }
         .anim-btn {
-            padding: 6px 14px; background: #0f3460;
+            padding: 8px 14px; background: #0f3460;
             color: #eee; border: 1px solid #e94560;
             border-radius: 4px; cursor: pointer;
             font-size: 0.75rem; transition: all 0.2s;
+            white-space: nowrap;
+            flex-shrink: 0;
         }
         .anim-btn:hover, .anim-btn.active { background: #e94560; color: #fff; }
+
+        /* Mobile Responsive */
+        @media (max-width: 768px) {
+            #menu-toggle { display: block; }
+            #header h1 { font-size: 1rem; }
+            #main { position: relative; }
+            #sidebar {
+                position: absolute;
+                top: 0; left: 0; bottom: 0;
+                width: 180px;
+                transform: translateX(-100%);
+                box-shadow: 2px 0 10px rgba(0,0,0,0.5);
+            }
+            #sidebar.open {
+                transform: translateX(0);
+            }
+            #canvas-area {
+                width: 100%;
+            }
+            #controls {
+                padding: 8px 10px 12px;
+                gap: 5px;
+            }
+            .anim-btn {
+                padding: 7px 12px;
+                font-size: 0.7rem;
+            }
+            .char-btn {
+                padding: 7px 8px;
+                font-size: 0.75rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            #sidebar { width: 160px; }
+            .anim-btn {
+                padding: 6px 10px;
+                font-size: 0.65rem;
+            }
+        }
+
+        #overlay {
+            display: none;
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 9;
+        }
+        #overlay.show { display: block; }
 </style>
 </head>
 <body>
-    <div id="header"><h1>CHARACTER SELECT</h1></div>
+    <div id="header">
+        <button id="menu-toggle">&#9776;</button>
+        <h1>CHARACTER SELECT</h1>
+    </div>
     <div id="main">
-        <div id="sidebar" id="sidebar"></div>
+        <div id="overlay"></div>
+        <div id="sidebar"></div>
         <div id="canvas-area">
             <div id="status" style="text-align:center;color:#888;">Select a character</div>
             <div id="controls"></div>
@@ -206,6 +287,7 @@ function buildSidebar() {
 
 
 async function selectCharacter(idx) {
+    closeMobileSidebar();
     sidebar.querySelectorAll('.char-btn').forEach((b,i) => b.classList.toggle('active', i===idx));
     const ch = CHARACTERS[idx];
     statusEl.style.display = 'block';
@@ -360,6 +442,25 @@ function buildAnimButtons(spineObj, anims, current) {
 // Boot
 initApp();
 buildSidebar();
+
+// Mobile menu toggle
+const menuToggle = document.getElementById('menu-toggle');
+const overlay = document.getElementById('overlay');
+menuToggle.addEventListener('click', () => {
+    sidebar.classList.toggle('open');
+    overlay.classList.toggle('show');
+});
+overlay.addEventListener('click', () => {
+    sidebar.classList.remove('open');
+    overlay.classList.remove('show');
+});
+// Close sidebar on character select (mobile)
+function closeMobileSidebar() {
+    if (window.innerWidth <= 768) {
+        sidebar.classList.remove('open');
+        overlay.classList.remove('show');
+    }
+}
 
 })();
     </script>
