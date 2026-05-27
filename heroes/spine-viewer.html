@@ -218,11 +218,12 @@
     <div id="format-select">
         <label>Format Spine:</label>
         <select id="spine-format">
-            <option value="auto">Auto Detect</option>
+            <option value="auto">Auto Detect (coba semua format)</option>
             <option value="json36">JSON - Spine 3.6</option>
             <option value="json38">JSON - Spine 3.8+</option>
             <option value="skel36">Binary (.skel) - Spine 3.6</option>
             <option value="skel38">Binary (.skel) - Spine 3.8+</option>
+            <option value="skel_auto">Binary (.skel) - Coba semua</option>
         </select>
     </div>
 
@@ -230,7 +231,8 @@
         <strong>Tips:</strong><br>
         • Upload minimal 3 file: <b>.json/.skel</b> (skeleton), <b>.atlas</b>, dan <b>.png</b> (texture)<br>
         • Bisa upload banyak .png jika atlas-nya multi-page<br>
-        • Format akan otomatis terdeteksi dari file JSON/Skel
+        • Format akan otomatis terdeteksi dari file JSON/Skel<br>
+        • <b>Support: Spine 3.4 - 3.8</b>. Spine 4.x mungkin tidak compatible
     </div>
 
     <button id="play-btn">▶ PLAY ANIMATION</button>
@@ -380,48 +382,98 @@ async function loadAndPlay() {
         if (jsonName) {
             const jsonText = await readFileAsText(uploadedFiles[jsonName]);
             const jsonData = JSON.parse(jsonText);
-            // Spine 3.8+ has skeleton.spine field with version
             if (jsonData.skeleton && jsonData.skeleton.spine) {
                 const ver = jsonData.skeleton.spine;
-                format = ver.startsWith('3.6') || ver.startsWith('3.5') || ver.startsWith('3.4') ? 'json36' : 'json38';
+                if (ver.startsWith('4.')) {
+                    format = 'json38'; // Try 3.8 parser for Spine 4.x (best effort)
+                } else if (ver.startsWith('3.6') || ver.startsWith('3.5') || ver.startsWith('3.4') || ver.startsWith('3.3')) {
+                    format = 'json36';
+                } else {
+                    format = 'json38';
+                }
             } else {
                 format = 'json36';
             }
         } else {
-            // Binary - try to detect from first bytes but default to skel38
-            format = 'skel38';
+            // Binary - will try multiple formats
+            format = 'skel_auto';
         }
     }
 
     // Parse skeleton data
-    let skeletonData;
+    let skeletonData = null;
+    const atlas = await parseAtlasFromUpload(atlasText, textureUrls);
+
     if (format === 'json36' || format === 'json38') {
         const jsonText = await readFileAsText(uploadedFiles[dataName]);
         const jsonData = JSON.parse(jsonText);
-        const atlas = await parseAtlasFromUpload(atlasText, textureUrls);
-        const parser = new PIXI.spine.SpineParser();
-        const jsonParser = parser.createJsonParser();
-        jsonParser.scale = 1;
-        skeletonData = jsonParser.readSkeletonData(atlas, jsonData);
+        try {
+            const parser = new PIXI.spine.SpineParser();
+            const jsonParser = parser.createJsonParser();
+            jsonParser.scale = 1;
+            skeletonData = jsonParser.readSkeletonData(atlas, jsonData);
+        } catch(e) {
+            console.warn('JSON parse failed:', e.message);
+            skeletonData = null;
+        }
     } else if (format === 'skel36') {
         const buf = await readFileAsArrayBuffer(uploadedFiles[dataName]);
-        const jsonData = spine36SkelToJson(buf);
-        const atlas = await parseAtlasFromUpload(atlasText, textureUrls);
-        const parser = new PIXI.spine.SpineParser();
-        const jsonParser = parser.createJsonParser();
-        jsonParser.scale = 1;
-        skeletonData = jsonParser.readSkeletonData(atlas, jsonData);
+        try {
+            const jsonData = spine36SkelToJson(buf);
+            const parser = new PIXI.spine.SpineParser();
+            const jsonParser = parser.createJsonParser();
+            jsonParser.scale = 1;
+            skeletonData = jsonParser.readSkeletonData(atlas, jsonData);
+        } catch(e) {
+            console.warn('Skel36 parse failed:', e.message);
+            skeletonData = null;
+        }
     } else if (format === 'skel38') {
         const buf = await readFileAsArrayBuffer(uploadedFiles[dataName]);
         const rawData = new Uint8Array(buf);
-        const atlas = await parseAtlasFromUpload(atlasText, textureUrls);
-        const parser = new PIXI.spine.SpineParser();
-        const binaryParser = parser.createBinaryParser();
-        binaryParser.scale = 1;
-        skeletonData = binaryParser.readSkeletonData(atlas, rawData);
+        try {
+            const parser = new PIXI.spine.SpineParser();
+            const binaryParser = parser.createBinaryParser();
+            binaryParser.scale = 1;
+            skeletonData = binaryParser.readSkeletonData(atlas, rawData);
+        } catch(e) {
+            console.warn('Skel38 parse failed:', e.message);
+            skeletonData = null;
+        }
+    } else if (format === 'skel_auto') {
+        // Try skel38 first, then skel36
+        const buf = await readFileAsArrayBuffer(uploadedFiles[dataName]);
+        const rawData = new Uint8Array(buf);
+
+        // Try Spine 3.8 binary
+        try {
+            const parser = new PIXI.spine.SpineParser();
+            const binaryParser = parser.createBinaryParser();
+            binaryParser.scale = 1;
+            skeletonData = binaryParser.readSkeletonData(atlas, rawData);
+        } catch(e) {
+            console.warn('Skel38 auto failed:', e.message);
+            skeletonData = null;
+        }
+
+        // If failed, try Spine 3.6 binary (convert to JSON first)
+        if (!skeletonData) {
+            try {
+                const jsonData = spine36SkelToJson(buf);
+                const parser = new PIXI.spine.SpineParser();
+                const jsonParser = parser.createJsonParser();
+                jsonParser.scale = 1;
+                skeletonData = jsonParser.readSkeletonData(atlas, jsonData);
+            } catch(e) {
+                console.warn('Skel36 auto failed:', e.message);
+                skeletonData = null;
+            }
+        }
     }
 
-    if (!skeletonData) throw new Error('Gagal parse skeleton data');
+    if (!skeletonData) {
+        throw new Error('Gagal parse skeleton. Kemungkinan format Spine tidak didukung (hanya support Spine 3.6 - 3.8). Coba pilih format manual.');
+    }
 
     // Show viewer
     showViewer(skeletonData);
