@@ -432,47 +432,63 @@ async function loadAndPlay() {
         const buf = await readFileAsArrayBuffer(uploadedFiles[dataName]);
         const rawData = new Uint8Array(buf);
         try {
+            // First check if it's actually a 3.8/4.x file by trying to read version
             const parser = new PIXI.spine.SpineParser();
             const binaryParser = parser.createBinaryParser();
             binaryParser.scale = 1;
             skeletonData = binaryParser.readSkeletonData(atlas, rawData);
         } catch(e) {
             console.warn('Skel38 parse failed:', e.message);
-            skeletonData = null;
+            // Fallback: try spine36SkelToJson converter
+            try {
+                const jsonData = spine36SkelToJson(buf);
+                if (jsonData && jsonData.bones && jsonData.bones.length > 0) {
+                    const parser2 = new PIXI.spine.SpineParser();
+                    const jsonParser = parser2.createJsonParser();
+                    jsonParser.scale = 1;
+                    skeletonData = jsonParser.readSkeletonData(atlas, jsonData);
+                }
+            } catch(e2) {
+                console.warn('Skel36 fallback also failed:', e2.message);
+                skeletonData = null;
+            }
         }
     } else if (format === 'skel_auto') {
-        // Try skel38 first, then skel36
+        // Try all binary formats
         const buf = await readFileAsArrayBuffer(uploadedFiles[dataName]);
         const rawData = new Uint8Array(buf);
 
-        // Try Spine 3.8 binary
+        // Try Spine 3.6/3.7 binary FIRST (via spine36SkelToJson converter)
+        // This is safer because the pixi-spine binary parser crashes on unsupported versions
         try {
-            const parser = new PIXI.spine.SpineParser();
-            const binaryParser = parser.createBinaryParser();
-            binaryParser.scale = 1;
-            skeletonData = binaryParser.readSkeletonData(atlas, rawData);
-        } catch(e) {
-            console.warn('Skel38 auto failed:', e.message);
-            skeletonData = null;
-        }
-
-        // If failed, try Spine 3.6 binary (convert to JSON first)
-        if (!skeletonData) {
-            try {
-                const jsonData = spine36SkelToJson(buf);
+            const jsonData = spine36SkelToJson(buf);
+            if (jsonData && jsonData.bones && jsonData.bones.length > 0) {
                 const parser = new PIXI.spine.SpineParser();
                 const jsonParser = parser.createJsonParser();
                 jsonParser.scale = 1;
                 skeletonData = jsonParser.readSkeletonData(atlas, jsonData);
+            }
+        } catch(e) {
+            console.warn('Skel36 auto failed:', e.message);
+            skeletonData = null;
+        }
+
+        // If failed, try Spine 3.8/4.0/4.1 binary parser
+        if (!skeletonData) {
+            try {
+                const parser = new PIXI.spine.SpineParser();
+                const binaryParser = parser.createBinaryParser();
+                binaryParser.scale = 1;
+                skeletonData = binaryParser.readSkeletonData(atlas, rawData);
             } catch(e) {
-                console.warn('Skel36 auto failed:', e.message);
+                console.warn('Skel38/4.x auto failed:', e.message);
                 skeletonData = null;
             }
         }
     }
 
     if (!skeletonData) {
-        throw new Error('Gagal parse skeleton. Kemungkinan format Spine tidak didukung (hanya support Spine 3.6 - 3.8). Coba pilih format manual.');
+        throw new Error('Gagal parse skeleton. File .skel mungkin format Spine yang tidak compatible, atau file corrupt. Pastikan file .skel, .atlas, dan .png cocok satu sama lain.');
     }
 
     // Show viewer
