@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Spine Animation Viewer</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #1a1a2e;
+            color: #eee;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            min-height: 100vh;
+            min-height: 100dvh;
+        }
+        #header {
+            text-align: center;
+            padding: 12px;
+            background: linear-gradient(135deg, #16213e, #0f3460);
+            border-bottom: 2px solid #e94560;
+        }
+        #header h1 { font-size: 1.1rem; color: #e94560; text-shadow: 0 0 10px rgba(233,69,96,0.5); }
+        #header p { font-size: 0.75rem; color: #aaa; margin-top: 4px; }
+        #upload-section {
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+        }
+        .upload-zone {
+            width: 100%;
+            max-width: 500px;
+            border: 2px dashed #e94560;
+            border-radius: 12px;
+            padding: 24px 16px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: rgba(233,69,96,0.05);
+        }
+        .upload-zone:hover, .upload-zone.dragover {
+            background: rgba(233,69,96,0.15);
+            border-color: #ff6b8a;
+        }
+        .upload-zone h3 { color: #e94560; font-size: 0.9rem; margin-bottom: 8px; }
+        .upload-zone p { font-size: 0.7rem; color: #888; }
+        .upload-zone .icon { font-size: 2rem; margin-bottom: 8px; }
+        #file-input { display: none; }
+        .file-list {
+            width: 100%;
+            max-width: 500px;
+            background: #16213e;
+            border-radius: 8px;
+            padding: 12px;
+            display: none;
+        }
+        .file-list h4 { font-size: 0.8rem; color: #e94560; margin-bottom: 8px; }
+        .file-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 6px 8px;
+            background: #0f3460;
+            border-radius: 4px;
+            margin-bottom: 4px;
+            font-size: 0.7rem;
+        }
+        .file-item .fname { color: #eee; word-break: break-all; }
+        .file-item .fsize { color: #888; white-space: nowrap; margin-left: 8px; }
+        .file-item .fcheck { color: #22cc55; margin-right: 6px; }
+        #play-btn {
+            padding: 12px 36px;
+            background: #e94560;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            font-weight: bold;
+            display: none;
+            transition: all 0.2s;
+        }
+        #play-btn:hover { background: #ff6b8a; transform: scale(1.05); }
+        #play-btn:disabled { background: #555; cursor: not-allowed; transform: none; }
+        #format-select {
+            display: none;
+            width: 100%;
+            max-width: 500px;
+            background: #16213e;
+            border-radius: 8px;
+            padding: 12px;
+        }
+        #format-select label { font-size: 0.8rem; color: #aaa; }
+        #format-select select {
+            width: 100%;
+            padding: 8px;
+            margin-top: 6px;
+            background: #0f3460;
+            color: #eee;
+            border: 1px solid #e94560;
+            border-radius: 4px;
+            font-size: 0.85rem;
+        }
+
+        /* Canvas / Viewer Area */
+        #viewer-section {
+            display: none;
+            width: 100%;
+            height: 70vh;
+            position: relative;
+            background: #111;
+        }
+        #viewer-section canvas { width: 100%; height: 100%; }
+        #controls {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            display: flex;
+            gap: 6px;
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            padding: 10px 12px;
+            background: linear-gradient(transparent, rgba(0,0,0,0.9) 30%);
+            -webkit-overflow-scrolling: touch;
+        }
+        #controls::-webkit-scrollbar { height: 4px; }
+        #controls::-webkit-scrollbar-thumb { background: #e94560; border-radius: 2px; }
+        .anim-btn {
+            padding: 8px 14px;
+            background: #0f3460;
+            color: #eee;
+            border: 1px solid #e94560;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            white-space: nowrap;
+            flex-shrink: 0;
+            transition: all 0.2s;
+        }
+        .anim-btn:hover, .anim-btn.active { background: #e94560; color: #fff; }
+
+        #back-btn {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            padding: 6px 14px;
+            background: rgba(0,0,0,0.7);
+            color: #eee;
+            border: 1px solid #e94560;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            z-index: 5;
+        }
+        #back-btn:hover { background: #e94560; }
+
+        #speed-controls {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            display: flex;
+            gap: 4px;
+            z-index: 5;
+        }
+        .speed-btn {
+            padding: 5px 10px;
+            background: rgba(0,0,0,0.7);
+            color: #fff;
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.7rem;
+        }
+        .speed-btn.active { background: #e94560; border-color: #e94560; }
+
+        #status-msg {
+            text-align: center;
+            padding: 10px;
+            font-size: 0.8rem;
+            color: #e94560;
+            display: none;
+        }
+
+        .tip-box {
+            width: 100%;
+            max-width: 500px;
+            background: rgba(34,204,85,0.1);
+            border: 1px solid #22cc55;
+            border-radius: 8px;
+            padding: 12px;
+            font-size: 0.7rem;
+            color: #aaa;
+        }
+        .tip-box strong { color: #22cc55; }
+    </style>
+</head>
+<body>
+<div id="header">
+    <h1>Spine Animation Viewer</h1>
+    <p>Upload file spine dari HP kamu untuk di-play animasinya</p>
+</div>
+
+<div id="upload-section">
+    <div class="upload-zone" id="drop-zone">
+        <div class="icon">📁</div>
+        <h3>Tap untuk pilih file / Drag & Drop</h3>
+        <p>Upload file: .json / .skel + .atlas + .png</p>
+    </div>
+    <input type="file" id="file-input" multiple accept=".json,.skel,.atlas,.png,.jpg,.txt">
+
+    <div class="file-list" id="file-list">
+        <h4>File yang di-upload:</h4>
+        <div id="file-items"></div>
+    </div>
+
+    <div id="format-select">
+        <label>Format Spine:</label>
+        <select id="spine-format">
+            <option value="auto">Auto Detect</option>
+            <option value="json36">JSON - Spine 3.6</option>
+            <option value="json38">JSON - Spine 3.8+</option>
+            <option value="skel36">Binary (.skel) - Spine 3.6</option>
+            <option value="skel38">Binary (.skel) - Spine 3.8+</option>
+        </select>
+    </div>
+
+    <div class="tip-box">
+        <strong>Tips:</strong><br>
+        • Upload minimal 3 file: <b>.json/.skel</b> (skeleton), <b>.atlas</b>, dan <b>.png</b> (texture)<br>
+        • Bisa upload banyak .png jika atlas-nya multi-page<br>
+        • Format akan otomatis terdeteksi dari file JSON/Skel
+    </div>
+
+    <button id="play-btn">▶ PLAY ANIMATION</button>
+    <div id="status-msg"></div>
+</div>
+
+<div id="viewer-section">
+    <button id="back-btn">← Upload Lagi</button>
+    <div id="speed-controls">
+        <button class="speed-btn active" data-speed="0.5">0.5x</button>
+        <button class="speed-btn" data-speed="1">1x</button>
+        <button class="speed-btn" data-speed="2">2x</button>
+    </div>
+    <div id="controls"></div>
+</div>
+
+<script src="pixi.min.js"></script>
+<script src="pixi-spine.js"></script>
+<script src="spine36-skel2json.js"></script>
+<script>
+(function(){
+'use strict';
+
+// === DOM Elements ===
+const dropZone = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
+const fileListEl = document.getElementById('file-list');
+const fileItemsEl = document.getElementById('file-items');
+const formatSelect = document.getElementById('format-select');
+const spineFormat = document.getElementById('spine-format');
+const playBtn = document.getElementById('play-btn');
+const statusMsg = document.getElementById('status-msg');
+const uploadSection = document.getElementById('upload-section');
+const viewerSection = document.getElementById('viewer-section');
+const controlsEl = document.getElementById('controls');
+const backBtn = document.getElementById('back-btn');
+
+let uploadedFiles = {};
+let app = null;
+let currentSpine = null;
+let animSpeed = 1;
+
+// === File Upload Handling ===
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    handleFiles(e.dataTransfer.files);
+});
+fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
+
+function handleFiles(files) {
+    for (const file of files) {
+        const ext = file.name.split('.').pop().toLowerCase();
+        if (['json','skel','atlas','png','jpg','txt'].includes(ext)) {
+            uploadedFiles[file.name] = file;
+        }
+    }
+    updateFileList();
+}
+
+function updateFileList() {
+    fileItemsEl.innerHTML = '';
+    const names = Object.keys(uploadedFiles);
+    if (names.length === 0) {
+        fileListEl.style.display = 'none';
+        formatSelect.style.display = 'none';
+        playBtn.style.display = 'none';
+        return;
+    }
+    fileListEl.style.display = 'block';
+
+    let hasData = false, hasAtlas = false, hasPng = false;
+    names.forEach(name => {
+        const ext = name.split('.').pop().toLowerCase();
+        if (ext === 'json' || ext === 'skel') hasData = true;
+        if (ext === 'atlas') hasAtlas = true;
+        if (ext === 'png' || ext === 'jpg') hasPng = true;
+
+        const div = document.createElement('div');
+        div.className = 'file-item';
+        const size = (uploadedFiles[name].size / 1024).toFixed(1) + ' KB';
+        div.innerHTML = '<span class="fcheck">✓</span><span class="fname">' + name + '</span><span class="fsize">' + size + '</span>';
+        fileItemsEl.appendChild(div);
+    });
+
+    formatSelect.style.display = hasData ? 'block' : 'none';
+    playBtn.style.display = (hasData && hasAtlas && hasPng) ? 'block' : 'none';
+}
+
+// === Show Status ===
+function showStatus(msg, isError) {
+    statusMsg.textContent = msg;
+    statusMsg.style.display = 'block';
+    statusMsg.style.color = isError ? '#e94560' : '#22cc55';
+}
+
+function hideStatus() { statusMsg.style.display = 'none'; }
+
+// === Play Button ===
+playBtn.addEventListener('click', async () => {
+    hideStatus();
+    playBtn.disabled = true;
+    playBtn.textContent = 'Loading...';
+    try {
+        await loadAndPlay();
+    } catch(e) {
+        showStatus('Error: ' + e.message, true);
+        console.error(e);
+    }
+    playBtn.disabled = false;
+    playBtn.textContent = '▶ PLAY ANIMATION';
+});
+
+// === Load and Play Spine ===
+async function loadAndPlay() {
+    const names = Object.keys(uploadedFiles);
+
+    // Find atlas file
+    const atlasName = names.find(n => n.endsWith('.atlas'));
+    if (!atlasName) throw new Error('File .atlas tidak ditemukan');
+
+    // Find skeleton data file
+    const jsonName = names.find(n => n.endsWith('.json'));
+    const skelName = names.find(n => n.endsWith('.skel'));
+    const dataName = jsonName || skelName;
+    if (!dataName) throw new Error('File .json atau .skel tidak ditemukan');
+
+    // Find PNG textures
+    const pngNames = names.filter(n => n.endsWith('.png') || n.endsWith('.jpg'));
+    if (pngNames.length === 0) throw new Error('File .png texture tidak ditemukan');
+
+    // Read atlas text
+    const atlasText = await readFileAsText(uploadedFiles[atlasName]);
+
+    // Create object URLs for PNG textures (map by filename)
+    const textureUrls = {};
+    for (const pn of pngNames) {
+        textureUrls[pn] = URL.createObjectURL(uploadedFiles[pn]);
+    }
+
+    // Detect or use selected format
+    let format = spineFormat.value;
+    if (format === 'auto') {
+        if (jsonName) {
+            const jsonText = await readFileAsText(uploadedFiles[jsonName]);
+            const jsonData = JSON.parse(jsonText);
+            // Spine 3.8+ has skeleton.spine field with version
+            if (jsonData.skeleton && jsonData.skeleton.spine) {
+                const ver = jsonData.skeleton.spine;
+                format = ver.startsWith('3.6') || ver.startsWith('3.5') || ver.startsWith('3.4') ? 'json36' : 'json38';
+            } else {
+                format = 'json36';
+            }
+        } else {
+            // Binary - try to detect from first bytes but default to skel38
+            format = 'skel38';
+        }
+    }
+
+    // Parse skeleton data
+    let skeletonData;
+    if (format === 'json36' || format === 'json38') {
+        const jsonText = await readFileAsText(uploadedFiles[dataName]);
+        const jsonData = JSON.parse(jsonText);
+        const atlas = await parseAtlasFromUpload(atlasText, textureUrls);
+        const parser = new PIXI.spine.SpineParser();
+        const jsonParser = parser.createJsonParser();
+        jsonParser.scale = 1;
+        skeletonData = jsonParser.readSkeletonData(atlas, jsonData);
+    } else if (format === 'skel36') {
+        const buf = await readFileAsArrayBuffer(uploadedFiles[dataName]);
+        const jsonData = spine36SkelToJson(buf);
+        const atlas = await parseAtlasFromUpload(atlasText, textureUrls);
+        const parser = new PIXI.spine.SpineParser();
+        const jsonParser = parser.createJsonParser();
+        jsonParser.scale = 1;
+        skeletonData = jsonParser.readSkeletonData(atlas, jsonData);
+    } else if (format === 'skel38') {
+        const buf = await readFileAsArrayBuffer(uploadedFiles[dataName]);
+        const rawData = new Uint8Array(buf);
+        const atlas = await parseAtlasFromUpload(atlasText, textureUrls);
+        const parser = new PIXI.spine.SpineParser();
+        const binaryParser = parser.createBinaryParser();
+        binaryParser.scale = 1;
+        skeletonData = binaryParser.readSkeletonData(atlas, rawData);
+    }
+
+    if (!skeletonData) throw new Error('Gagal parse skeleton data');
+
+    // Show viewer
+    showViewer(skeletonData);
+}
+
+function parseAtlasFromUpload(atlasText, textureUrls) {
+    return new Promise((resolve, reject) => {
+        new PIXI.spine.TextureAtlas(atlasText, (pageName, callback) => {
+            const url = textureUrls[pageName];
+            if (!url) {
+                // Try to find by matching just the filename part
+                const matchKey = Object.keys(textureUrls).find(k => k.toLowerCase() === pageName.toLowerCase());
+                if (matchKey) {
+                    const tex = PIXI.BaseTexture.from(textureUrls[matchKey], { scaleMode: PIXI.SCALE_MODES.LINEAR });
+                    if (tex.valid) callback(tex);
+                    else tex.once('loaded', () => callback(tex));
+                    return;
+                }
+                reject(new Error('Texture tidak ditemukan: ' + pageName));
+                return;
+            }
+            const tex = PIXI.BaseTexture.from(url, { scaleMode: PIXI.SCALE_MODES.LINEAR });
+            if (tex.valid) callback(tex);
+            else {
+                tex.once('loaded', () => callback(tex));
+                tex.once('error', () => reject(new Error('Gagal load texture: ' + pageName)));
+            }
+        }, (atlas) => { resolve(atlas); });
+    });
+}
+
+// === Viewer ===
+function showViewer(skeletonData) {
+    uploadSection.style.display = 'none';
+    viewerSection.style.display = 'block';
+
+    if (!app) {
+        app = new PIXI.Application({
+            width: viewerSection.clientWidth,
+            height: viewerSection.clientHeight,
+            backgroundColor: 0x111111,
+            antialias: true,
+            resolution: window.devicePixelRatio || 1,
+            autoDensity: true
+        });
+        viewerSection.insertBefore(app.view, viewerSection.firstChild);
+        window.addEventListener('resize', () => {
+            if (viewerSection.style.display !== 'none') {
+                app.renderer.resize(viewerSection.clientWidth, viewerSection.clientHeight);
+                if (currentSpine) positionSpine(currentSpine);
+            }
+        });
+    } else {
+        app.renderer.resize(viewerSection.clientWidth, viewerSection.clientHeight);
+        if (currentSpine) { app.stage.removeChild(currentSpine); currentSpine = null; }
+    }
+
+    const spineObj = new PIXI.spine.Spine(skeletonData);
+    currentSpine = spineObj;
+    try {
+        spineObj.skeleton.updateWorldTransform();
+        spineObj.update(0);
+    } catch(e) {}
+    app.stage.addChild(spineObj);
+    positionSpine(spineObj);
+
+    // Animations
+    const anims = skeletonData.animations.map(a => a.name);
+    let defaultAnim = anims.find(a => /idle|wait|stand|normal/i.test(a)) || anims[0];
+    if (defaultAnim) playAnim(spineObj, defaultAnim);
+    buildAnimButtons(spineObj, anims, defaultAnim);
+
+    setTimeout(() => { if (currentSpine === spineObj) positionSpine(spineObj); }, 150);
+}
+
+function positionSpine(spineObj) {
+    const cw = app.renderer.width / (window.devicePixelRatio || 1);
+    const ch = app.renderer.height / (window.devicePixelRatio || 1);
+    let bw = 300, bh = 500;
+    try {
+        spineObj.skeleton.updateWorldTransform();
+        const bounds = spineObj.getLocalBounds();
+        if (bounds.width > 0 && bounds.height > 0 && isFinite(bounds.width) && isFinite(bounds.height)) {
+            bw = bounds.width;
+            bh = bounds.height;
+        }
+    } catch(e) {}
+    let scale = Math.min((cw * 0.8) / bw, (ch * 0.6) / bh, 2.5);
+    scale = Math.max(scale, 0.15);
+    spineObj.scale.set(scale);
+    spineObj.x = cw / 2;
+    spineObj.y = ch * 0.6;
+}
+
+function playAnim(spineObj, animName) {
+    try { spineObj.state.setAnimation(0, animName, true); } catch(e) {}
+    controlsEl.querySelectorAll('.anim-btn').forEach(b =>
+        b.classList.toggle('active', b.textContent === animName));
+}
+
+function buildAnimButtons(spineObj, anims, current) {
+    controlsEl.innerHTML = '';
+    anims.forEach(name => {
+        const btn = document.createElement('button');
+        btn.className = 'anim-btn' + (name === current ? ' active' : '');
+        btn.textContent = name;
+        btn.onclick = () => playAnim(spineObj, name);
+        controlsEl.appendChild(btn);
+    });
+}
+
+// === Back Button ===
+backBtn.addEventListener('click', () => {
+    viewerSection.style.display = 'none';
+    uploadSection.style.display = 'flex';
+});
+
+// === Speed Controls ===
+document.querySelectorAll('.speed-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.speed-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        animSpeed = parseFloat(btn.dataset.speed);
+        if (currentSpine) currentSpine.state.timeScale = animSpeed;
+    });
+});
+
+// === Helpers ===
+function readFileAsText(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error('Gagal baca file: ' + file.name));
+        reader.readAsText(file);
+    });
+}
+
+function readFileAsArrayBuffer(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error('Gagal baca file: ' + file.name));
+        reader.readAsArrayBuffer(file);
+    });
+}
+
+})();
+</script>
+</body>
+</html>
