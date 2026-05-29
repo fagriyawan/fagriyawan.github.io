@@ -1,0 +1,117 @@
+vfx_blue_meteor.png
+size: 1408,768
+format: RGBA8888
+filter: Linear,Linear
+repeat: none
+energy_01
+  rotate: false
+  xy: 160, 20
+  size: 150, 150
+  orig: 150, 150
+  offset: 0, 0
+  index: -1
+energy_02
+  rotate: false
+  xy: 455, 20
+  size: 160, 160
+  orig: 160, 160
+  offset: 0, 0
+  index: -1
+energy_03
+  rotate: false
+  xy: 760, 20
+  size: 160, 160
+  orig: 160, 160
+  offset: 0, 0
+  index: -1
+energy_04
+  rotate: false
+  xy: 1100, 15
+  size: 170, 170
+  orig: 170, 170
+  offset: 0, 0
+  index: -1
+projectile_01
+  rotate: false
+  xy: 140, 210
+  size: 200, 190
+  orig: 200, 190
+  offset: 0, 0
+  index: -1
+projectile_02
+  rotate: false
+  xy: 420, 205
+  size: 220, 195
+  orig: 220, 195
+  offset: 0, 0
+  index: -1
+projectile_03
+  rotate: false
+  xy: 710, 200
+  size: 240, 200
+  orig: 240, 200
+  offset: 0, 0
+  index: -1
+projectile_04
+  rotate: false
+  xy: 1015, 195
+  size: 270, 205
+  orig: 270, 205
+  offset: 0, 0
+  index: -1
+impact_01
+  rotate: false
+  xy: 160, 390
+  size: 190, 200
+  orig: 190, 200
+  offset: 0, 0
+  index: -1
+impact_02
+  rotate: false
+  xy: 420, 410
+  size: 270, 180
+  orig: 270, 180
+  offset: 0, 0
+  index: -1
+impact_03
+  rotate: false
+  xy: 695, 395
+  size: 310, 195
+  orig: 310, 195
+  offset: 0, 0
+  index: -1
+impact_04
+  rotate: false
+  xy: 1010, 390
+  size: 340, 200
+  orig: 340, 200
+  offset: 0, 0
+  index: -1
+smoke_01
+  rotate: false
+  xy: 110, 580
+  size: 340, 180
+  orig: 340, 180
+  offset: 0, 0
+  index: -1
+smoke_02
+  rotate: false
+  xy: 430, 600
+  size: 290, 160
+  orig: 290, 160
+  offset: 0, 0
+  index: -1
+smoke_03
+  rotate: false
+  xy: 735, 620
+  size: 240, 140
+  orig: 240, 140
+  offset: 0, 0
+  index: -1
+particles_01
+  rotate: false
+  xy: 1085, 605
+  size: 240, 150
+  orig: 240, 150
+  offset: 0, 0
+  index: -1
