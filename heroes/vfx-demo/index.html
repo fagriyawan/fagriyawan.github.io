@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>VFX Blue Meteor - Spine Demo</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -77,8 +80,9 @@
 
 <div class="controls">
   <button id="btn-replay">🔄 Replay "cast"</button>
-  <button class="speed-btn" data-speed="0.5">🐢 0.5x</button>
-  <button class="speed-btn active" data-speed="1">▶ 1x</button>
+  <button id="btn-loop" class="active">🔁 Loop: ON</button>
+  <button class="speed-btn active" data-speed="0.5">🐢 0.5x</button>
+  <button class="speed-btn" data-speed="1">▶ 1x</button>
   <button class="speed-btn" data-speed="2">⚡ 2x</button>
 </div>
 
@@ -205,14 +209,22 @@ spine.state.addListener({
 });
 
 function play(){
-  spine.state.setAnimation(0, 'cast', false);
-  log('▶ Playing animation: cast', 'log-info');
+  spine.state.setAnimation(0, 'cast', isLooping);
+  log(isLooping ? '🔁 Playing animation: cast (loop)' : '▶ Playing animation: cast (once)', 'log-info');
 }
 
+let isLooping = true;
+spine.state.timeScale = 0.5;
 play();
 
 // Controls
 document.getElementById('btn-replay').onclick = play;
+document.getElementById('btn-loop').onclick = (e) => {
+  isLooping = !isLooping;
+  e.target.textContent = isLooping ? '🔁 Loop: ON' : '⏸ Loop: OFF';
+  e.target.classList.toggle('active', isLooping);
+  play();
+};
 document.querySelectorAll('.speed-btn').forEach(btn => {
   btn.onclick = () => {
     document.querySelectorAll('.speed-btn').forEach(b => b.classList.remove('active'));
