@@ -11,49 +11,234 @@
     "fps": 60
   },
   "bones": [
-    { "name": "root" },
-    { "name": "vfx_root", "parent": "root", "x": 0, "y": 0 },
-    { "name": "vfx_spin", "parent": "vfx_root", "x": 0, "y": 0 },
-    { "name": "vfx_impact", "parent": "root", "x": 0, "y": 0 },
-    { "name": "vfx_smoke", "parent": "vfx_impact", "x": 0, "y": 0 },
-    { "name": "vfx_particles", "parent": "vfx_impact", "x": 0, "y": 0 }
+    {
+      "name": "root"
+    },
+    {
+      "name": "vfx_root",
+      "parent": "root",
+      "x": 0,
+      "y": 0
+    },
+    {
+      "name": "vfx_spin",
+      "parent": "vfx_root",
+      "x": 0,
+      "y": 0
+    },
+    {
+      "name": "vfx_impact",
+      "parent": "root",
+      "x": 0,
+      "y": 0
+    },
+    {
+      "name": "vfx_smoke",
+      "parent": "vfx_impact",
+      "x": 0,
+      "y": 0
+    },
+    {
+      "name": "vfx_particles",
+      "parent": "vfx_impact",
+      "x": 0,
+      "y": 0
+    }
   ],
   "slots": [
-    { "name": "energy", "bone": "vfx_spin", "attachment": "energy_01", "blend": "additive", "color": "ffffffff" },
-    { "name": "projectile", "bone": "vfx_root", "attachment": null, "blend": "additive", "color": "ffffffff" },
-    { "name": "impact", "bone": "vfx_impact", "attachment": null, "blend": "additive", "color": "ffffffff" },
-    { "name": "smoke", "bone": "vfx_smoke", "attachment": null, "blend": "normal", "color": "ffffffff" },
-    { "name": "particles", "bone": "vfx_particles", "attachment": null, "blend": "normal", "color": "ffffffff" }
+    {
+      "name": "energy",
+      "bone": "vfx_spin",
+      "attachment": "energy_01",
+      "blend": "additive",
+      "color": "ffffffff"
+    },
+    {
+      "name": "projectile",
+      "bone": "vfx_root",
+      "attachment": null,
+      "blend": "additive",
+      "color": "ffffffff"
+    },
+    {
+      "name": "impact",
+      "bone": "vfx_impact",
+      "attachment": null,
+      "blend": "additive",
+      "color": "ffffffff"
+    },
+    {
+      "name": "smoke",
+      "bone": "vfx_smoke",
+      "attachment": null,
+      "blend": "normal",
+      "color": "ffffffff"
+    },
+    {
+      "name": "particles",
+      "bone": "vfx_particles",
+      "attachment": null,
+      "blend": "normal",
+      "color": "ffffffff"
+    }
   ],
   "skins": [
     {
       "name": "default",
       "attachments": {
         "energy": {
-          "energy_01": { "x": 0, "y": 0, "rotation": 0, "width": 256, "height": 256, "originalWidth": 256, "originalHeight": 256 },
-          "energy_02": { "x": 0, "y": 0, "rotation": 0, "width": 256, "height": 256, "originalWidth": 256, "originalHeight": 256 },
-          "energy_03": { "x": 0, "y": 0, "rotation": 0, "width": 256, "height": 256, "originalWidth": 256, "originalHeight": 256 },
-          "energy_04": { "x": 0, "y": 0, "rotation": 0, "width": 256, "height": 256, "originalWidth": 256, "originalHeight": 256 }
+          "energy_01": {
+            "x": 0,
+            "y": 0,
+            "rotation": 0,
+            "width": 95,
+            "height": 96,
+            "originalWidth": 95,
+            "originalHeight": 96
+          },
+          "energy_02": {
+            "x": 0,
+            "y": 0,
+            "rotation": 0,
+            "width": 105,
+            "height": 104,
+            "originalWidth": 105,
+            "originalHeight": 104
+          },
+          "energy_03": {
+            "x": 0,
+            "y": 0,
+            "rotation": 0,
+            "width": 105,
+            "height": 105,
+            "originalWidth": 105,
+            "originalHeight": 105
+          },
+          "energy_04": {
+            "x": 0,
+            "y": 0,
+            "rotation": 0,
+            "width": 102,
+            "height": 103,
+            "originalWidth": 102,
+            "originalHeight": 103
+          }
         },
         "projectile": {
-          "projectile_01": { "x": 0, "y": 0, "rotation": -45, "width": 256, "height": 256, "originalWidth": 256, "originalHeight": 256 },
-          "projectile_02": { "x": 0, "y": 0, "rotation": -45, "width": 256, "height": 256, "originalWidth": 256, "originalHeight": 256 },
-          "projectile_03": { "x": 0, "y": 0, "rotation": -45, "width": 256, "height": 256, "originalWidth": 256, "originalHeight": 256 },
-          "projectile_04": { "x": 0, "y": 0, "rotation": -45, "width": 256, "height": 256, "originalWidth": 256, "originalHeight": 256 }
+          "projectile_01": {
+            "x": 0,
+            "y": 0,
+            "rotation": -45,
+            "width": 114,
+            "height": 119,
+            "originalWidth": 114,
+            "originalHeight": 119
+          },
+          "projectile_02": {
+            "x": 0,
+            "y": 0,
+            "rotation": -45,
+            "width": 139,
+            "height": 144,
+            "originalWidth": 139,
+            "originalHeight": 144
+          },
+          "projectile_03": {
+            "x": 0,
+            "y": 0,
+            "rotation": -45,
+            "width": 161,
+            "height": 169,
+            "originalWidth": 161,
+            "originalHeight": 169
+          },
+          "projectile_04": {
+            "x": 0,
+            "y": 0,
+            "rotation": -45,
+            "width": 157,
+            "height": 168,
+            "originalWidth": 157,
+            "originalHeight": 168
+          }
         },
         "impact": {
-          "impact_01": { "x": 0, "y": 64, "rotation": 0, "width": 256, "height": 256, "originalWidth": 256, "originalHeight": 256 },
-          "impact_02": { "x": 0, "y": 64, "rotation": 0, "width": 320, "height": 256, "originalWidth": 320, "originalHeight": 256 },
-          "impact_03": { "x": 0, "y": 80, "rotation": 0, "width": 384, "height": 320, "originalWidth": 384, "originalHeight": 320 },
-          "impact_04": { "x": 0, "y": 96, "rotation": 0, "width": 448, "height": 352, "originalWidth": 448, "originalHeight": 352 }
+          "impact_01": {
+            "x": 0,
+            "y": 40,
+            "rotation": 0,
+            "width": 170,
+            "height": 163,
+            "originalWidth": 170,
+            "originalHeight": 163
+          },
+          "impact_02": {
+            "x": 0,
+            "y": 35,
+            "rotation": 0,
+            "width": 176,
+            "height": 143,
+            "originalWidth": 176,
+            "originalHeight": 143
+          },
+          "impact_03": {
+            "x": 0,
+            "y": 39,
+            "rotation": 0,
+            "width": 208,
+            "height": 159,
+            "originalWidth": 208,
+            "originalHeight": 159
+          },
+          "impact_04": {
+            "x": 0,
+            "y": 41,
+            "rotation": 0,
+            "width": 207,
+            "height": 167,
+            "originalWidth": 207,
+            "originalHeight": 167
+          }
         },
         "smoke": {
-          "smoke_01": { "x": 0, "y": 96, "rotation": 0, "width": 448, "height": 352, "originalWidth": 448, "originalHeight": 352 },
-          "smoke_02": { "x": 0, "y": 64, "rotation": 0, "width": 384, "height": 256, "originalWidth": 384, "originalHeight": 256 },
-          "smoke_03": { "x": 0, "y": 48, "rotation": 0, "width": 320, "height": 192, "originalWidth": 320, "originalHeight": 192 }
+          "smoke_01": {
+            "x": 0,
+            "y": 46,
+            "rotation": 0,
+            "width": 225,
+            "height": 184,
+            "originalWidth": 225,
+            "originalHeight": 184
+          },
+          "smoke_02": {
+            "x": 0,
+            "y": 35,
+            "rotation": 0,
+            "width": 212,
+            "height": 142,
+            "originalWidth": 212,
+            "originalHeight": 142
+          },
+          "smoke_03": {
+            "x": 0,
+            "y": 32,
+            "rotation": 0,
+            "width": 199,
+            "height": 129,
+            "originalWidth": 199,
+            "originalHeight": 129
+          }
         },
         "particles": {
-          "particles_01": { "x": 0, "y": 32, "rotation": 0, "width": 192, "height": 128, "originalWidth": 192, "originalHeight": 128 }
+          "particles_01": {
+            "x": 0,
+            "y": 29,
+            "rotation": 0,
+            "width": 316,
+            "height": 116,
+            "originalWidth": 316,
+            "originalHeight": 116
+          }
         }
       }
     }
@@ -75,140 +260,517 @@
       "slots": {
         "energy": {
           "attachment": [
-            { "time": 0.0, "name": "energy_01" },
-            { "time": 0.0833, "name": "energy_02" },
-            { "time": 0.1666, "name": "energy_03" },
-            { "time": 0.25, "name": "energy_04" },
-            { "time": 0.3333, "name": null }
+            {
+              "time": 0.0,
+              "name": "energy_01"
+            },
+            {
+              "time": 0.0833,
+              "name": "energy_02"
+            },
+            {
+              "time": 0.1666,
+              "name": "energy_03"
+            },
+            {
+              "time": 0.25,
+              "name": "energy_04"
+            },
+            {
+              "time": 0.3333,
+              "name": null
+            }
           ],
           "color": [
-            { "time": 0.0, "color": "ffffff00", "curve": [0.25, 0, 0.75, 1] },
-            { "time": 0.0833, "color": "ffffffff" },
-            { "time": 0.25, "color": "ffffffff", "curve": [0.4, 0, 1, 1] },
-            { "time": 0.3333, "color": "ffffff00" }
+            {
+              "time": 0.0,
+              "color": "ffffff00",
+              "curve": [
+                0.25,
+                0,
+                0.75,
+                1
+              ]
+            },
+            {
+              "time": 0.0833,
+              "color": "ffffffff"
+            },
+            {
+              "time": 0.25,
+              "color": "ffffffff",
+              "curve": [
+                0.4,
+                0,
+                1,
+                1
+              ]
+            },
+            {
+              "time": 0.3333,
+              "color": "ffffff00"
+            }
           ]
         },
         "projectile": {
           "attachment": [
-            { "time": 0.3333, "name": "projectile_01" },
-            { "time": 0.4, "name": "projectile_02" },
-            { "time": 0.4666, "name": "projectile_03" },
-            { "time": 0.5333, "name": "projectile_04" },
-            { "time": 0.6, "name": null }
+            {
+              "time": 0.3333,
+              "name": "projectile_01"
+            },
+            {
+              "time": 0.4,
+              "name": "projectile_02"
+            },
+            {
+              "time": 0.4666,
+              "name": "projectile_03"
+            },
+            {
+              "time": 0.5333,
+              "name": "projectile_04"
+            },
+            {
+              "time": 0.6,
+              "name": null
+            }
           ],
           "color": [
-            { "time": 0.3333, "color": "ffffff00", "curve": [0, 0, 0.5, 1] },
-            { "time": 0.4, "color": "ffffffff" },
-            { "time": 0.5666, "color": "ffffffff", "curve": [0.5, 0, 1, 1] },
-            { "time": 0.6, "color": "ffffff00" }
+            {
+              "time": 0.3333,
+              "color": "ffffff00",
+              "curve": [
+                0,
+                0,
+                0.5,
+                1
+              ]
+            },
+            {
+              "time": 0.4,
+              "color": "ffffffff"
+            },
+            {
+              "time": 0.5666,
+              "color": "ffffffff",
+              "curve": [
+                0.5,
+                0,
+                1,
+                1
+              ]
+            },
+            {
+              "time": 0.6,
+              "color": "ffffff00"
+            }
           ]
         },
         "impact": {
           "attachment": [
-            { "time": 0.6, "name": "impact_01" },
-            { "time": 0.6666, "name": "impact_02" },
-            { "time": 0.7333, "name": "impact_03" },
-            { "time": 0.8, "name": "impact_04" },
-            { "time": 0.9, "name": null }
+            {
+              "time": 0.6,
+              "name": "impact_01"
+            },
+            {
+              "time": 0.6666,
+              "name": "impact_02"
+            },
+            {
+              "time": 0.7333,
+              "name": "impact_03"
+            },
+            {
+              "time": 0.8,
+              "name": "impact_04"
+            },
+            {
+              "time": 0.9,
+              "name": null
+            }
           ],
           "color": [
-            { "time": 0.6, "color": "ffffffff" },
-            { "time": 0.8, "color": "ffffffff", "curve": [0.3, 0, 0.9, 1] },
-            { "time": 0.9, "color": "ffffff00" }
+            {
+              "time": 0.6,
+              "color": "ffffffff"
+            },
+            {
+              "time": 0.8,
+              "color": "ffffffff",
+              "curve": [
+                0.3,
+                0,
+                0.9,
+                1
+              ]
+            },
+            {
+              "time": 0.9,
+              "color": "ffffff00"
+            }
           ]
         },
         "smoke": {
           "attachment": [
-            { "time": 0.85, "name": "smoke_01" },
-            { "time": 1.0, "name": "smoke_02" },
-            { "time": 1.2, "name": "smoke_03" },
-            { "time": 1.45, "name": null }
+            {
+              "time": 0.85,
+              "name": "smoke_01"
+            },
+            {
+              "time": 1.0,
+              "name": "smoke_02"
+            },
+            {
+              "time": 1.2,
+              "name": "smoke_03"
+            },
+            {
+              "time": 1.45,
+              "name": null
+            }
           ],
           "color": [
-            { "time": 0.85, "color": "ffffff00", "curve": [0.2, 0, 0.6, 1] },
-            { "time": 0.95, "color": "ffffffcc" },
-            { "time": 1.2, "color": "ffffff99", "curve": [0.4, 0, 1, 1] },
-            { "time": 1.45, "color": "ffffff00" }
+            {
+              "time": 0.85,
+              "color": "ffffff00",
+              "curve": [
+                0.2,
+                0,
+                0.6,
+                1
+              ]
+            },
+            {
+              "time": 0.95,
+              "color": "ffffffcc"
+            },
+            {
+              "time": 1.2,
+              "color": "ffffff99",
+              "curve": [
+                0.4,
+                0,
+                1,
+                1
+              ]
+            },
+            {
+              "time": 1.45,
+              "color": "ffffff00"
+            }
           ]
         },
         "particles": {
           "attachment": [
-            { "time": 1.1, "name": "particles_01" },
-            { "time": 1.6, "name": null }
+            {
+              "time": 1.1,
+              "name": "particles_01"
+            },
+            {
+              "time": 1.6,
+              "name": null
+            }
           ],
           "color": [
-            { "time": 1.1, "color": "ffffff00", "curve": [0.2, 0, 0.5, 1] },
-            { "time": 1.2, "color": "ffffffff" },
-            { "time": 1.4, "color": "ffffffaa", "curve": [0.5, 0, 1, 1] },
-            { "time": 1.6, "color": "ffffff00" }
+            {
+              "time": 1.1,
+              "color": "ffffff00",
+              "curve": [
+                0.2,
+                0,
+                0.5,
+                1
+              ]
+            },
+            {
+              "time": 1.2,
+              "color": "ffffffff"
+            },
+            {
+              "time": 1.4,
+              "color": "ffffffaa",
+              "curve": [
+                0.5,
+                0,
+                1,
+                1
+              ]
+            },
+            {
+              "time": 1.6,
+              "color": "ffffff00"
+            }
           ]
         }
       },
       "bones": {
         "vfx_root": {
           "translate": [
-            { "time": 0.0, "x": -180, "y": 220, "curve": "stepped" },
-            { "time": 0.3333, "x": -180, "y": 220, "curve": [0.2, 0, 0.6, 1] },
-            { "time": 0.6, "x": 180, "y": -180 }
+            {
+              "time": 0.0,
+              "x": -180,
+              "y": 220,
+              "curve": "stepped"
+            },
+            {
+              "time": 0.3333,
+              "x": -180,
+              "y": 220,
+              "curve": [
+                0.2,
+                0,
+                0.6,
+                1
+              ]
+            },
+            {
+              "time": 0.6,
+              "x": 180,
+              "y": -180
+            }
           ],
           "scale": [
-            { "time": 0.0, "x": 0.4, "y": 0.4, "curve": [0.25, 0, 0.6, 1] },
-            { "time": 0.1666, "x": 1.15, "y": 1.15, "curve": [0.4, 0, 0.8, 1] },
-            { "time": 0.3333, "x": 1.0, "y": 1.0, "curve": [0.3, 0, 0.7, 1] },
-            { "time": 0.5333, "x": 1.4, "y": 1.4 },
-            { "time": 0.6, "x": 1.5, "y": 1.5 }
+            {
+              "time": 0.0,
+              "x": 0.6000000000000001,
+              "y": 0.6000000000000001,
+              "curve": [
+                0.25,
+                0,
+                0.6,
+                1
+              ]
+            },
+            {
+              "time": 0.1666,
+              "x": 1.7249999999999999,
+              "y": 1.7249999999999999,
+              "curve": [
+                0.4,
+                0,
+                0.8,
+                1
+              ]
+            },
+            {
+              "time": 0.3333,
+              "x": 1.5,
+              "y": 1.5,
+              "curve": [
+                0.3,
+                0,
+                0.7,
+                1
+              ]
+            },
+            {
+              "time": 0.5333,
+              "x": 2.0999999999999996,
+              "y": 2.0999999999999996
+            },
+            {
+              "time": 0.6,
+              "x": 2.25,
+              "y": 2.25
+            }
           ]
         },
         "vfx_spin": {
           "rotate": [
-            { "time": 0.0, "angle": 0, "curve": [0.3, 0, 0.7, 1] },
-            { "time": 0.3333, "angle": 720 }
+            {
+              "time": 0.0,
+              "angle": 0,
+              "curve": [
+                0.3,
+                0,
+                0.7,
+                1
+              ]
+            },
+            {
+              "time": 0.3333,
+              "angle": 720
+            }
           ]
         },
         "vfx_impact": {
           "translate": [
-            { "time": 0.0, "x": 180, "y": -180 }
+            {
+              "time": 0.0,
+              "x": 180,
+              "y": -180
+            }
           ],
           "scale": [
-            { "time": 0.6, "x": 0.5, "y": 0.5, "curve": [0.0, 0.5, 0.3, 1] },
-            { "time": 0.7333, "x": 1.3, "y": 1.3, "curve": [0.3, 0, 0.8, 1] },
-            { "time": 0.8, "x": 1.6, "y": 1.6, "curve": [0.4, 0, 1, 1] },
-            { "time": 0.9, "x": 1.8, "y": 1.4 }
+            {
+              "time": 0.6,
+              "x": 0.75,
+              "y": 0.75,
+              "curve": [
+                0.0,
+                0.5,
+                0.3,
+                1
+              ]
+            },
+            {
+              "time": 0.7333,
+              "x": 1.9500000000000002,
+              "y": 1.9500000000000002,
+              "curve": [
+                0.3,
+                0,
+                0.8,
+                1
+              ]
+            },
+            {
+              "time": 0.8,
+              "x": 2.4000000000000004,
+              "y": 2.4000000000000004,
+              "curve": [
+                0.4,
+                0,
+                1,
+                1
+              ]
+            },
+            {
+              "time": 0.9,
+              "x": 2.7,
+              "y": 2.0999999999999996
+            }
           ]
         },
         "vfx_smoke": {
           "translate": [
-            { "time": 0.85, "x": 0, "y": 0, "curve": [0.3, 0, 0.7, 1] },
-            { "time": 1.45, "x": 0, "y": 60 }
+            {
+              "time": 0.85,
+              "x": 0,
+              "y": 0,
+              "curve": [
+                0.3,
+                0,
+                0.7,
+                1
+              ]
+            },
+            {
+              "time": 1.45,
+              "x": 0,
+              "y": 60
+            }
           ],
           "scale": [
-            { "time": 0.85, "x": 1.0, "y": 1.0, "curve": [0.4, 0, 0.8, 1] },
-            { "time": 1.2, "x": 1.25, "y": 1.1, "curve": [0.5, 0, 1, 1] },
-            { "time": 1.45, "x": 1.5, "y": 1.2 }
+            {
+              "time": 0.85,
+              "x": 1.0,
+              "y": 1.0,
+              "curve": [
+                0.4,
+                0,
+                0.8,
+                1
+              ]
+            },
+            {
+              "time": 1.2,
+              "x": 1.25,
+              "y": 1.1,
+              "curve": [
+                0.5,
+                0,
+                1,
+                1
+              ]
+            },
+            {
+              "time": 1.45,
+              "x": 1.5,
+              "y": 1.2
+            }
           ]
         },
         "vfx_particles": {
           "translate": [
-            { "time": 1.1, "x": 0, "y": 20, "curve": [0.3, 0, 0.7, 1] },
-            { "time": 1.6, "x": 0, "y": 100 }
+            {
+              "time": 1.1,
+              "x": 0,
+              "y": 20,
+              "curve": [
+                0.3,
+                0,
+                0.7,
+                1
+              ]
+            },
+            {
+              "time": 1.6,
+              "x": 0,
+              "y": 100
+            }
           ],
           "scale": [
-            { "time": 1.1, "x": 0.8, "y": 0.8, "curve": [0.4, 0, 0.8, 1] },
-            { "time": 1.6, "x": 1.4, "y": 1.4 }
+            {
+              "time": 1.1,
+              "x": 0.8,
+              "y": 0.8,
+              "curve": [
+                0.4,
+                0,
+                0.8,
+                1
+              ]
+            },
+            {
+              "time": 1.6,
+              "x": 1.4,
+              "y": 1.4
+            }
           ]
         }
       },
       "events": [
-        { "time": 0.0, "name": "vfx_start" },
-        { "time": 0.0833, "name": "vfx_charge_loop" },
-        { "time": 0.25, "name": "vfx_charge_complete" },
-        { "time": 0.3333, "name": "vfx_launch" },
-        { "time": 0.4666, "name": "vfx_travel" },
-        { "time": 0.6, "name": "vfx_impact" },
-        { "time": 0.7333, "name": "vfx_explosion_peak" },
-        { "time": 0.85, "name": "vfx_smoke_release" },
-        { "time": 1.2, "name": "vfx_dissipate" },
-        { "time": 1.6, "name": "vfx_end" }
+        {
+          "time": 0.0,
+          "name": "vfx_start"
+        },
+        {
+          "time": 0.0833,
+          "name": "vfx_charge_loop"
+        },
+        {
+          "time": 0.25,
+          "name": "vfx_charge_complete"
+        },
+        {
+          "time": 0.3333,
+          "name": "vfx_launch"
+        },
+        {
+          "time": 0.4666,
+          "name": "vfx_travel"
+        },
+        {
+          "time": 0.6,
+          "name": "vfx_impact"
+        },
+        {
+          "time": 0.7333,
+          "name": "vfx_explosion_peak"
+        },
+        {
+          "time": 0.85,
+          "name": "vfx_smoke_release"
+        },
+        {
+          "time": 1.2,
+          "name": "vfx_dissipate"
+        },
+        {
+          "time": 1.6,
+          "name": "vfx_end"
+        }
       ]
     }
   }

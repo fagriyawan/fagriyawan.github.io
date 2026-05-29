@@ -5,113 +5,113 @@ filter: Linear,Linear
 repeat: none
 energy_01
   rotate: false
-  xy: 160, 20
-  size: 150, 150
-  orig: 150, 150
+  xy: 289, 49
+  size: 95, 96
+  orig: 95, 96
   offset: 0, 0
   index: -1
 energy_02
   rotate: false
-  xy: 455, 20
-  size: 160, 160
-  orig: 160, 160
+  xy: 524, 45
+  size: 105, 104
+  orig: 105, 104
   offset: 0, 0
   index: -1
 energy_03
   rotate: false
-  xy: 760, 20
-  size: 160, 160
-  orig: 160, 160
+  xy: 769, 47
+  size: 105, 105
+  orig: 105, 105
   offset: 0, 0
   index: -1
 energy_04
   rotate: false
-  xy: 1100, 15
-  size: 170, 170
-  orig: 170, 170
+  xy: 1012, 46
+  size: 102, 103
+  orig: 102, 103
   offset: 0, 0
   index: -1
 projectile_01
   rotate: false
-  xy: 140, 210
-  size: 200, 190
-  orig: 200, 190
+  xy: 271, 231
+  size: 114, 119
+  orig: 114, 119
   offset: 0, 0
   index: -1
 projectile_02
   rotate: false
-  xy: 420, 205
-  size: 220, 195
-  orig: 220, 195
+  xy: 501, 218
+  size: 139, 144
+  orig: 139, 144
   offset: 0, 0
   index: -1
 projectile_03
   rotate: false
-  xy: 710, 200
-  size: 240, 200
-  orig: 240, 200
+  xy: 724, 199
+  size: 161, 169
+  orig: 161, 169
   offset: 0, 0
   index: -1
 projectile_04
   rotate: false
-  xy: 1015, 195
-  size: 270, 205
-  orig: 270, 205
+  xy: 973, 204
+  size: 157, 168
+  orig: 157, 168
   offset: 0, 0
   index: -1
 impact_01
   rotate: false
-  xy: 160, 390
-  size: 190, 200
-  orig: 190, 200
+  xy: 237, 389
+  size: 170, 163
+  orig: 170, 163
   offset: 0, 0
   index: -1
 impact_02
   rotate: false
-  xy: 420, 410
-  size: 270, 180
-  orig: 270, 180
+  xy: 490, 411
+  size: 176, 143
+  orig: 176, 143
   offset: 0, 0
   index: -1
 impact_03
   rotate: false
-  xy: 695, 395
-  size: 310, 195
-  orig: 310, 195
+  xy: 724, 402
+  size: 208, 159
+  orig: 208, 159
   offset: 0, 0
   index: -1
 impact_04
   rotate: false
-  xy: 1010, 390
-  size: 340, 200
-  orig: 340, 200
+  xy: 973, 399
+  size: 207, 167
+  orig: 207, 167
   offset: 0, 0
   index: -1
 smoke_01
   rotate: false
-  xy: 110, 580
-  size: 340, 180
-  orig: 340, 180
+  xy: 225, 570
+  size: 225, 184
+  orig: 225, 184
   offset: 0, 0
   index: -1
 smoke_02
   rotate: false
-  xy: 430, 600
-  size: 290, 160
-  orig: 290, 160
+  xy: 479, 603
+  size: 212, 142
+  orig: 212, 142
   offset: 0, 0
   index: -1
 smoke_03
   rotate: false
-  xy: 735, 620
-  size: 240, 140
-  orig: 240, 140
+  xy: 727, 612
+  size: 199, 129
+  orig: 199, 129
   offset: 0, 0
   index: -1
 particles_01
   rotate: false
-  xy: 1085, 605
-  size: 240, 150
-  orig: 240, 150
+  xy: 1060, 621
+  size: 316, 116
+  orig: 316, 116
   offset: 0, 0
   index: -1
