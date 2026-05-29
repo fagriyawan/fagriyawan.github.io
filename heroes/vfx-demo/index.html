@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>VFX Blue Meteor - Spine Demo</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -10,76 +11,61 @@
     color: #fff;
     font-family: system-ui, sans-serif;
     min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 20px;
+    padding: 16px;
   }
-  h1 { color: #4ec9ff; margin-bottom: 4px; }
-  .subtitle { color: #8a9bb8; margin-bottom: 20px; font-size: 0.9rem; }
+  h1 { color: #4ec9ff; text-align:center; }
+  .subtitle { color: #8a9bb8; text-align:center; margin-bottom: 16px; font-size: 0.85rem; }
   #stage {
-    width: 90vw;
+    width: 100%;
     max-width: 900px;
     height: 60vh;
+    margin: 0 auto;
     background: radial-gradient(ellipse at center, #1a2540, #050810);
     border: 1px solid #2a3a5c;
     border-radius: 12px;
-    box-shadow: 0 0 40px rgba(78, 201, 255, 0.2);
     position: relative;
     overflow: hidden;
   }
-  #stage canvas { width: 100%; height: 100%; display: block; }
+  #stage canvas { display: block; }
   .controls {
-    margin-top: 20px;
+    margin: 16px auto;
     display: flex;
     gap: 8px;
     flex-wrap: wrap;
     justify-content: center;
+    max-width: 900px;
   }
   button {
-    padding: 10px 20px;
+    padding: 8px 16px;
     background: #1e3a5f;
     color: #fff;
     border: 1px solid #4ec9ff;
     border-radius: 6px;
     cursor: pointer;
-    font-size: 0.9rem;
-    transition: all 0.2s;
+    font-size: 0.85rem;
   }
   button:hover, button.active {
     background: #4ec9ff;
     color: #0a0e27;
-    box-shadow: 0 0 15px rgba(78, 201, 255, 0.5);
   }
-  #event-log {
-    margin-top: 16px;
-    padding: 12px;
-    background: rgba(0,0,0,0.4);
-    border-radius: 8px;
-    width: 90vw;
+  #log-box {
+    margin: 12px auto;
+    padding: 10px;
+    background: rgba(0,0,0,0.5);
+    border-radius: 6px;
+    width: 100%;
     max-width: 900px;
-    height: 100px;
+    height: 180px;
     overflow-y: auto;
     font-family: monospace;
-    font-size: 0.8rem;
+    font-size: 0.72rem;
+    border: 1px solid #2a3a5c;
   }
-  .evt { color: #4ec9ff; }
-  .evt-time { color: #888; }
-  #status {
-    margin: 20px;
-    padding: 16px 24px;
-    background: rgba(255,100,100,0.1);
-    border: 1px solid #ff6464;
-    border-radius: 8px;
-    color: #ff8888;
-    display: none;
-    max-width: 600px;
-  }
-  #status.info {
-    background: rgba(78, 201, 255, 0.1);
-    border-color: #4ec9ff;
-    color: #4ec9ff;
-  }
+  .log-info { color: #4ec9ff; }
+  .log-ok { color: #5fd66e; }
+  .log-err { color: #ff7070; font-weight: bold; }
+  .log-evt { color: #ffce5f; }
+  .log-time { color: #666; margin-right: 6px; }
 </style>
 </head>
 <body>
@@ -87,108 +73,169 @@
 <h1>⚡ VFX Blue Meteor</h1>
 <div class="subtitle">Spine 3.8 Animation Demo</div>
 
-<div id="status"></div>
-
 <div id="stage"></div>
 
 <div class="controls">
-  <button id="btn-play" class="active">▶ Play "cast"</button>
-  <button id="btn-replay">🔄 Replay</button>
-  <button id="btn-slow">🐢 0.5x</button>
-  <button id="btn-normal">▶ 1x</button>
-  <button id="btn-fast">⚡ 2x</button>
+  <button id="btn-replay">🔄 Replay "cast"</button>
+  <button class="speed-btn" data-speed="0.5">🐢 0.5x</button>
+  <button class="speed-btn active" data-speed="1">▶ 1x</button>
+  <button class="speed-btn" data-speed="2">⚡ 2x</button>
 </div>
 
-<div id="event-log"></div>
+<div id="log-box"></div>
 
 <script src="../pixi.min.js"></script>
 <script src="../pixi-spine.js"></script>
 
 <script>
-(async function() {
-  const stage = document.getElementById('stage');
-  const status = document.getElementById('status');
-  const log = document.getElementById('event-log');
+(async function(){
+'use strict';
 
-  function showStatus(msg, isInfo) {
-    status.textContent = msg;
-    status.className = isInfo ? 'info' : '';
-    status.style.display = 'block';
-  }
+const stage = document.getElementById('stage');
+const logBox = document.getElementById('log-box');
 
-  function logEvent(time, name) {
-    const div = document.createElement('div');
-    div.innerHTML = `<span class="evt-time">[${time.toFixed(2)}s]</span> <span class="evt">📢 ${name}</span>`;
-    log.insertBefore(div, log.firstChild);
-    if (log.children.length > 30) log.removeChild(log.lastChild);
-  }
+function log(msg, cls){
+  const div = document.createElement('div');
+  div.className = cls || 'log-info';
+  const t = new Date().toISOString().substr(14,8);
+  div.innerHTML = '<span class="log-time">'+t+'</span>' + msg;
+  logBox.insertBefore(div, logBox.firstChild);
+}
 
-  // Check if PNG exists first
+log('🚀 Starting demo...', 'log-info');
+log('PIXI version: ' + (PIXI.VERSION || 'unknown'), 'log-info');
+log('pixi-spine: ' + (PIXI.spine ? 'loaded' : 'NOT LOADED'), PIXI.spine ? 'log-ok' : 'log-err');
+
+// === Step 1: Check files exist ===
+const baseUrl = location.href.substring(0, location.href.lastIndexOf('/')+1);
+log('Base URL: ' + baseUrl, 'log-info');
+
+async function checkFile(name){
   try {
-    const test = await fetch('vfx_blue_meteor.png', { method: 'HEAD' });
-    if (!test.ok) throw new Error();
-  } catch (e) {
-    showStatus('⚠️ File "vfx_blue_meteor.png" belum ada di folder vfx-demo/. Silakan save gambar sprite sheet VFX biru Anda dengan nama tersebut ke folder ini.');
-    return;
+    const res = await fetch(name);
+    if (!res.ok) throw new Error('HTTP '+res.status);
+    log('✓ Found: ' + name + ' ('+res.headers.get('content-type')+')', 'log-ok');
+    return res;
+  } catch(e) {
+    log('✗ MISSING: ' + name + ' — ' + e.message, 'log-err');
+    return null;
   }
+}
 
-  const app = new PIXI.Application({
-    width: stage.clientWidth,
-    height: stage.clientHeight,
-    backgroundAlpha: 0,
-    antialias: true,
-    resolution: window.devicePixelRatio || 1,
-    autoDensity: true
+const jsonRes = await checkFile('vfx_blue_meteor.json');
+const atlasRes = await checkFile('vfx_blue_meteor.atlas');
+const pngRes   = await checkFile('vfx_blue_meteor.png');
+
+if (!jsonRes || !atlasRes || !pngRes) {
+  log('💥 Cannot continue: missing required files. Upload vfx_blue_meteor.png to this folder.', 'log-err');
+  return;
+}
+
+// === Step 2: Parse atlas with custom texture loader ===
+let atlasText, jsonData;
+try {
+  atlasText = await atlasRes.text();
+  jsonData = await jsonRes.json();
+  log('✓ Atlas size declared: ' + atlasText.split('\n')[1], 'log-ok');
+  log('✓ JSON loaded: ' + Object.keys(jsonData.animations||{}).length + ' animations', 'log-ok');
+} catch(e) {
+  log('💥 Parse error: ' + e.message, 'log-err');
+  return;
+}
+
+// === Step 3: Load atlas texture manually ===
+let atlas;
+try {
+  atlas = await new Promise((resolve, reject) => {
+    new PIXI.spine.TextureAtlas(atlasText, (pageName, callback) => {
+      log('  Loading texture page: ' + pageName, 'log-info');
+      const tex = PIXI.BaseTexture.from('vfx_blue_meteor.png', { scaleMode: PIXI.SCALE_MODES.LINEAR });
+      if (tex.valid) {
+        log('  ✓ Texture ready immediately', 'log-ok');
+        callback(tex);
+      } else {
+        tex.once('loaded', () => { log('  ✓ Texture loaded', 'log-ok'); callback(tex); });
+        tex.once('error', (e) => reject(new Error('Texture load failed: '+pageName)));
+      }
+    }, (a) => resolve(a));
   });
-  stage.appendChild(app.view);
+  log('✓ Atlas parsed: ' + atlas.regions.length + ' regions', 'log-ok');
+} catch(e) {
+  log('💥 Atlas error: ' + e.message, 'log-err');
+  return;
+}
 
-  // Load spine assets
-  PIXI.Loader.shared.add('vfx', 'vfx_blue_meteor.json').load((loader, resources) => {
-    if (!resources.vfx || !resources.vfx.spineData) {
-      showStatus('Gagal load Spine data. Cek console.');
-      console.error(resources);
-      return;
-    }
+// === Step 4: Parse skeleton data ===
+let skeletonData;
+try {
+  const parser = new PIXI.spine.SpineParser();
+  const jsonParser = parser.createJsonParser();
+  jsonParser.scale = 1;
+  skeletonData = jsonParser.readSkeletonData(atlas, jsonData);
+  log('✓ Skeleton parsed: ' + skeletonData.bones.length + ' bones, ' + skeletonData.slots.length + ' slots', 'log-ok');
+} catch(e) {
+  log('💥 Skeleton parse error: ' + e.message, 'log-err');
+  console.error(e);
+  return;
+}
 
-    const spine = new PIXI.spine.Spine(resources.vfx.spineData);
-    spine.x = stage.clientWidth / 2;
-    spine.y = stage.clientHeight / 2;
-    spine.scale.set(0.6);
-    app.stage.addChild(spine);
+// === Step 5: Create PIXI app & spine ===
+const app = new PIXI.Application({
+  width: stage.clientWidth,
+  height: stage.clientHeight,
+  backgroundAlpha: 0,
+  antialias: true,
+  resolution: window.devicePixelRatio || 1,
+  autoDensity: true
+});
+stage.appendChild(app.view);
+log('✓ PIXI app created: ' + app.renderer.width + 'x' + app.renderer.height, 'log-ok');
 
-    // Listen to events
-    spine.state.addListener({
-      event: (entry, event) => logEvent(event.time, event.data.name),
-      complete: (entry) => logEvent(entry.trackTime, '✅ animation complete')
-    });
+const spine = new PIXI.spine.Spine(skeletonData);
+spine.x = stage.clientWidth / 2;
+spine.y = stage.clientHeight / 2;
+spine.scale.set(0.5);
+app.stage.addChild(spine);
+log('✓ Spine added to stage at ('+spine.x+','+spine.y+')', 'log-ok');
 
-    function play() {
-      spine.state.setAnimation(0, 'cast', false);
-      log.innerHTML = '';
-    }
+// Listen events
+spine.state.addListener({
+  event: (entry, event) => log('📢 ' + event.data.name + ' @ ' + event.time.toFixed(2)+'s', 'log-evt'),
+  complete: (entry) => log('✅ animation complete', 'log-evt')
+});
 
-    play();
+function play(){
+  spine.state.setAnimation(0, 'cast', false);
+  log('▶ Playing animation: cast', 'log-info');
+}
 
-    // Controls
-    document.getElementById('btn-play').onclick = play;
-    document.getElementById('btn-replay').onclick = play;
-    document.getElementById('btn-slow').onclick = () => { spine.state.timeScale = 0.5; setActive('btn-slow'); };
-    document.getElementById('btn-normal').onclick = () => { spine.state.timeScale = 1.0; setActive('btn-normal'); };
-    document.getElementById('btn-fast').onclick = () => { spine.state.timeScale = 2.0; setActive('btn-fast'); };
+play();
 
-    function setActive(id) {
-      ['btn-slow','btn-normal','btn-fast'].forEach(i =>
-        document.getElementById(i).classList.toggle('active', i === id));
-    }
+// Controls
+document.getElementById('btn-replay').onclick = play;
+document.querySelectorAll('.speed-btn').forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll('.speed-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    spine.state.timeScale = parseFloat(btn.dataset.speed);
+    log('Speed: ' + btn.dataset.speed + 'x', 'log-info');
+  };
+});
 
-    // Resize
-    window.addEventListener('resize', () => {
-      app.renderer.resize(stage.clientWidth, stage.clientHeight);
-      spine.x = stage.clientWidth / 2;
-      spine.y = stage.clientHeight / 2;
-    });
-  });
-})();
+window.addEventListener('resize', () => {
+  app.renderer.resize(stage.clientWidth, stage.clientHeight);
+  spine.x = stage.clientWidth / 2;
+  spine.y = stage.clientHeight / 2;
+});
+
+})().catch(e => {
+  const logBox = document.getElementById('log-box');
+  const div = document.createElement('div');
+  div.className = 'log-err';
+  div.textContent = '💥 FATAL: ' + e.message + ' — see browser console';
+  logBox.insertBefore(div, logBox.firstChild);
+  console.error(e);
+});
 </script>
 
 </body>
