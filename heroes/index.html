@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+  <title>Heroes Tropis ⚔️ — Auto Battler</title>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+  <!-- Splash -->
+  <div id="splash" class="splash">
+    <div class="splash-box">
+      <div class="splash-icon">⚔️</div>
+      <h1>Heroes Tropis</h1>
+      <p class="tagline">Pilih pahlawanmu. Taklukkan kegelapan.</p>
+      <button id="btnPlay" class="btn glow">Mulai Pertempuran</button>
+      <p class="credit">Made with ⚔️ by Kiro</p>
+    </div>
+  </div>
+
+  <!-- Stage Select -->
+  <div id="stageSelect" class="screen hidden">
+    <header class="hud-bar">
+      <span class="hud-title">⚔️ Heroes Tropis</span>
+      <span class="hud-gold">💰 <span id="goldDisplay">0</span></span>
+    </header>
+    <div class="stage-panel">
+      <h2>Pilih Stage</h2>
+      <div id="stageList" class="stage-list"></div>
+    </div>
+  </div>
+
+  <!-- Battle Screen -->
+  <div id="battleScreen" class="screen hidden">
+    <header class="hud-bar">
+      <span class="hud-title" id="stageTitle">Stage 1</span>
+      <div class="speed-controls">
+        <button class="speed-btn active" data-speed="1">1x</button>
+        <button class="speed-btn" data-speed="2">2x</button>
+        <button class="speed-btn" data-speed="3">3x</button>
+      </div>
+    </header>
+    <canvas id="battleCanvas"></canvas>
+    <!-- Skill bar -->
+    <div id="skillBar" class="skill-bar"></div>
+  </div>
+
+  <!-- Victory / Defeat modal -->
+  <div id="resultModal" class="modal hidden">
+    <div class="modal-box">
+      <div id="resultIcon" class="result-icon">🏆</div>
+      <h2 id="resultTitle">Victory!</h2>
+      <p id="resultText">+100 💰</p>
+      <button id="btnNext" class="btn">Lanjut</button>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>
