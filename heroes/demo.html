@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Spine Character Demo ⚔️</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: linear-gradient(180deg, #1a2a3a, #2d1f3d, #1a1a2e);
+      color: #f1faee; font-family: system-ui, sans-serif;
+      min-height: 100vh; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 1rem; padding: 1rem;
+    }
+    h1 { font-size: 1.5rem; text-align: center; }
+    canvas {
+      border: 2px solid rgba(255,255,255,0.1); border-radius: 12px;
+      background: rgba(0,0,0,0.3); max-width: 100%;
+    }
+    .controls {
+      display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;
+    }
+    .btn {
+      padding: 0.6rem 1.2rem; border: 1px solid rgba(255,255,255,0.2);
+      background: rgba(255,255,255,0.08); color: #f1faee;
+      border-radius: 8px; cursor: pointer; font-family: inherit;
+      font-size: 0.9rem; transition: all 0.15s;
+    }
+    .btn:hover { background: rgba(155,93,229,0.3); border-color: #9b5de5; }
+    .btn.active { background: #9b5de5; border-color: #9b5de5; color: white; }
+    .status { font-size: 0.85rem; color: #8899aa; text-align: center; }
+  </style>
+</head>
+<body>
+  <h1>⚔️ Spine Character Demo</h1>
+  <canvas id="canvas" width="500" height="600"></canvas>
+  <div class="controls" id="controls"></div>
+  <div class="status" id="status">Loading...</div>
+
+  <script src="spine-canvas.js"></script>
+  <script>
+    const ATLAS_URL = "assets/char001/cream_arcade_000.atlas";
+    const JSON_URL = "assets/char001/cream_arcade_000.json";
+    const PNG_URL = "assets/char001/cream_arcade_000.png";
+
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+    const statusEl = document.getElementById("status");
+    const controlsEl = document.getElementById("controls");
+
+    let skeleton, animState, animStateData, bounds;
+    let currentAnim = "Idle";
+    let lastTime = 0;
+
+    // Load assets manually for spine-canvas 3.6
+    function loadSpine() {
+      statusEl.textContent = "Loading texture...";
+
+      // Load the PNG texture
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = function() {
+        statusEl.textContent = "Loading atlas...";
+        loadAtlas(img);
+      };
+      img.onerror = function() {
+        statusEl.textContent = "Error loading texture PNG";
+      };
+      img.src = PNG_URL;
+    }
+
+    function loadAtlas(img) {
+      fetch(ATLAS_URL)
+        .then(r => r.text())
+        .then(rawAtlasText => {
+          statusEl.textContent = "Loading skeleton...";
+
+          // Fix atlas for Spine 3.6 compatibility.
+          // The atlas from newer Spine versions has extra fields like "pma:true"
+          // that the 3.6 parser doesn't understand. The 3.6 parser reads the page
+          // header by line position, so we must reconstruct it exactly:
+          //   \n
+          //   textureName.png
+          //   size: W,H
+          //   format: RGBA8888
+          //   filter: Linear,Linear
+          //   repeat: none
+          // Then region entries follow.
+          const lines = rawAtlasText.split('\n');
+          const fixedLines = [];
+          let inHeader = false;
+          let headerDone = false;
+
+          for (let i = 0; i < lines.length; i++) {
+            const trimmed = lines[i].trim();
+
+            // Skip completely empty lines at start
+            if (fixedLines.length === 0 && trimmed === '') continue;
+
+            // Detect texture filename line (ends with .png/.jpg and no colon before it)
+            if (!headerDone && (trimmed.endsWith('.png') || trimmed.endsWith('.jpg'))) {
+              // Start of a page - add blank line separator then filename
+              if (fixedLines.length > 0) fixedLines.push('');
+              fixedLines.push(trimmed);
+              inHeader = true;
+              continue;
+            }
+
+            // In header section, only keep known fields
+            if (inHeader) {
+              if (trimmed.startsWith('size:') || trimmed.startsWith('format:') ||
+                  trimmed.startsWith('filter:') || trimmed.startsWith('repeat:')) {
+                fixedLines.push(trimmed);
+                if (trimmed.startsWith('repeat:')) {
+                  inHeader = false;
+                  headerDone = true;
+                }
+              }
+              // Skip unknown header fields like pma:true
+              continue;
+            }
+
+            // Region data - pass through as-is
+            fixedLines.push(lines[i]);
+          }
+
+          const atlasText = fixedLines.join('\n');
+          console.log("Fixed atlas (first 300 chars):", atlasText.substring(0, 300));
+
+          // Create spine texture from image
+          // Set premultipliedAlpha since the atlas has pma:true
+          const spineImg = new spine.canvas.CanvasTexture(img);
+
+          // Parse atlas
+          const atlas = new spine.TextureAtlas(atlasText, function(path) {
+            return spineImg;
+          });
+
+          // Load skeleton JSON
+          fetch(JSON_URL)
+            .then(r => r.text())
+            .then(jsonText => {
+              const atlasLoader = new spine.AtlasAttachmentLoader(atlas);
+              const skeletonJson = new spine.SkeletonJson(atlasLoader);
+              skeletonJson.scale = 0.3; // Scale down (original is ~1600px tall)
+
+              const skeletonData = skeletonJson.readSkeletonData(JSON.parse(jsonText));
+
+              // Create skeleton
+              skeleton = new spine.Skeleton(skeletonData);
+              skeleton.setSkinByName("default");
+              skeleton.setSlotsToSetupPose();
+              skeleton.updateWorldTransform();
+
+              // Set premultiplied alpha on skeleton
+              skeleton.color.a = 1;
+
+              // Animation state
+              animStateData = new spine.AnimationStateData(skeletonData);
+              animStateData.defaultMix = 0.3; // Smooth transition between anims
+              animState = new spine.AnimationState(animStateData);
+              animState.setAnimation(0, "Idle", true);
+
+              // Calculate bounds for positioning
+              bounds = calculateBounds(skeleton);
+
+              // Build controls
+              buildControls(skeletonData.animations);
+
+              statusEl.textContent = "Playing: Idle (loop)";
+              lastTime = Date.now() / 1000;
+              requestAnimationFrame(render);
+            });
+        })
+        .catch(err => {
+          statusEl.textContent = "Error: " + err.message;
+        });
+    }
+
+    function calculateBounds(skeleton) {
+      skeleton.setToSetupPose();
+      skeleton.updateWorldTransform();
+      const offset = new spine.Vector2();
+      const size = new spine.Vector2();
+      skeleton.getBounds(offset, size, []);
+      return { offset, size };
+    }
+
+    function buildControls(animations) {
+      controlsEl.innerHTML = "";
+      animations.forEach(anim => {
+        const btn = document.createElement("button");
+        btn.className = "btn" + (anim.name === "Idle" ? " active" : "");
+        btn.textContent = anim.name;
+        btn.addEventListener("click", () => {
+          const isLoop = anim.name === "Idle" || anim.name === "Walk" ||
+                         anim.name.includes("Loop");
+          animState.setAnimation(0, anim.name, isLoop);
+          currentAnim = anim.name;
+          statusEl.textContent = `Playing: ${anim.name} (${isLoop ? "loop" : "once"})`;
+
+          // If one-shot, return to idle after
+          if (!isLoop) {
+            animState.addAnimation(0, "Idle", true, 0);
+          }
+
+          // Update active button
+          document.querySelectorAll(".btn").forEach(b => b.classList.remove("active"));
+          btn.classList.add("active");
+        });
+        controlsEl.appendChild(btn);
+      });
+    }
+
+    function render() {
+      const now = Date.now() / 1000;
+      const delta = now - lastTime;
+      lastTime = now;
+
+      // Clear
+      ctx.save();
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Position skeleton in center of canvas
+      ctx.translate(canvas.width / 2, canvas.height * 0.85);
+
+      // Update animation
+      animState.update(delta);
+      animState.apply(skeleton);
+      skeleton.updateWorldTransform();
+
+      // Render
+      const renderer = new spine.canvas.SkeletonRenderer(ctx);
+      renderer.debugRendering = false;
+      renderer.triangleRendering = true;
+      renderer.draw(skeleton);
+
+      ctx.restore();
+      requestAnimationFrame(render);
+    }
+
+    // Start loading
+    loadSpine();
+  </script>
+</body>
+</html>
