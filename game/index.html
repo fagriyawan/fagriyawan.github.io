@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#1a3d2e" />
+  <title>Kebun Tropis 🌴 — Farming Game</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- Splash / Intro -->
+  <div id="splash" class="splash">
+    <div class="splash-content">
+      <div class="splash-emoji">🌴</div>
+      <h1>Kebun Tropis</h1>
+      <p class="splash-tagline">Tanam, rawat, panen — bangun kebun impianmu!</p>
+      <button id="btnStart" class="btn-primary">Mulai Bertani</button>
+      <button id="btnReset" class="btn-link">Reset Save</button>
+      <p class="splash-credit">Made with 💚 by Kiro</p>
+    </div>
+  </div>
+
+  <!-- Main Game UI -->
+  <div id="game" class="game hidden">
+    <!-- Header -->
+    <header class="topbar">
+      <div class="brand">🌴 Kebun Tropis</div>
+      <div class="stats">
+        <div class="stat" title="Koin">
+          <span class="stat-icon">💰</span>
+          <span id="coins">0</span>
+        </div>
+        <div class="stat" title="Level">
+          <span class="stat-icon">⭐</span>
+          <span id="level">1</span>
+        </div>
+        <div class="xp-wrap" title="XP">
+          <div class="xp-bar"><div id="xpFill" class="xp-fill"></div></div>
+          <span id="xpText" class="xp-text">0/50</span>
+        </div>
+      </div>
+      <button id="btnMenu" class="icon-btn" title="Menu">☰</button>
+    </header>
+
+    <!-- Main Layout -->
+    <main class="layout">
+      <!-- Left: seed shop & quests -->
+      <aside class="panel panel-left">
+        <section class="card">
+          <h2>🌱 Bibit</h2>
+          <div id="seedList" class="seed-list"></div>
+        </section>
+
+        <section class="card">
+          <h2>📜 Misi</h2>
+          <div id="questList" class="quest-list"></div>
+        </section>
+      </aside>
+
+      <!-- Center: farm -->
+      <section class="farm-wrap">
+        <div id="farm" class="farm"></div>
+        <div id="toast" class="toast"></div>
+      </section>
+
+      <!-- Right: inventory -->
+      <aside class="panel panel-right">
+        <section class="card">
+          <h2>🧺 Inventaris</h2>
+          <div id="inventory" class="inventory"></div>
+          <button id="btnSellAll" class="btn-primary btn-block">Jual Semua</button>
+        </section>
+
+        <section class="card hint-card">
+          <h2>💡 Tips</h2>
+          <ul class="tips">
+            <li>Klik petak kosong untuk menanam bibit terpilih</li>
+            <li>Klik pohon berbuah 🍃 untuk memanen</li>
+            <li>Selesaikan misi untuk koin & XP bonus</li>
+            <li>Naik level → buka bibit baru</li>
+          </ul>
+        </section>
+      </aside>
+    </main>
+
+    <!-- Mobile bottom dock -->
+    <nav class="dock">
+      <button class="dock-btn active" data-tab="farm">🌾 Kebun</button>
+      <button class="dock-btn" data-tab="seeds">🌱 Bibit</button>
+      <button class="dock-btn" data-tab="quests">📜 Misi</button>
+      <button class="dock-btn" data-tab="inv">🧺 Tas</button>
+    </nav>
+  </div>
+
+  <!-- Menu modal -->
+  <div id="menuModal" class="modal hidden">
+    <div class="modal-content">
+      <h2>Menu</h2>
+      <button class="btn-primary btn-block" id="btnResume">Lanjut Main</button>
+      <button class="btn-secondary btn-block" id="btnHardReset">Reset Game (hapus save)</button>
+      <button class="btn-link btn-block" id="btnSound">🔊 Suara: ON</button>
+      <p class="muted small">Save otomatis ke browser ini.</p>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>
